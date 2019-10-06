@@ -1,7 +1,7 @@
 ﻿// curl_test.cpp : このファイルには 'main' 関数が含まれています。プログラム実行の開始と終了がそこで行われます。
 //
 
-#include "pch.h"
+//#include "pch.h"
 #include <stdio.h>
 #include <sys/eventfd.h>
 
@@ -11,6 +11,7 @@
 #include "ServerAcceptHandler.h"
 #include "ResponseRuleGeneral.h"
 
+#include "logout.h"
 
 
 #ifdef _WIN32
@@ -19,6 +20,16 @@
 		strcat_s(str1, sizeof(str1), str2);	\
 	} while (0);
 #endif
+
+
+#define LOGOUT(format, ...)		\
+	do {										\
+		char logbuf[1024] = {0};				\
+		snprintf(logbuf, sizeof(logbuf), format, __VA_ARGS__);	\
+		logout(logbuf);							\
+	} while (0);
+
+#define LOGOUT_S(stream, format, ...)	LOGOUT(format, __VA_ARGS__)
 
 static
 void dump(const char *text,
@@ -35,20 +46,24 @@ void dump(const char *text,
 		/* without the hex output, we can fit more on screen */
 		width = 0x40;
 
-	fprintf(stream, "%s, %10.10lu bytes (0x%8.8lx)\n",
+	LOGOUT_S(stream, "%s, %10.10lu bytes (0x%8.8lx)\n",
 		text, (unsigned long)size, (unsigned long)size);
 
 	for (i = 0; i < size; i += width) {
 
-		fprintf(stream, "%4.4lx: ", (unsigned long)i);
+		LOGOUT_S(stream, "%4.4lx: ", (unsigned long)i);
 
 		if (!nohex) {
 			/* hex not disabled, show it */
 			for (c = 0; c < width; c++)
 				if (i + c < size)
-					fprintf(stream, "%02x ", ptr[i + c]);
+				{
+					LOGOUT_S(stream, "%02x ", ptr[i + c]);
+				}
 				else
-					fputs("   ", stream);
+				{
+					LOGOUT_S(stream, "   ");
+				}
 		}
 
 		for (c = 0; (c < width) && (i + c < size); c++) {
@@ -58,7 +73,7 @@ void dump(const char *text,
 				i += (c + 2 - width);
 				break;
 			}
-			fprintf(stream, "%c",
+			LOGOUT_S(stream, "%c",
 				(ptr[i + c] >= 0x20) && (ptr[i + c] < 0x80) ? ptr[i + c] : '.');
 			/* check again for 0D0A, to avoid an extra \n if it's at width */
 			if (nohex && (i + c + 2 < size) && ptr[i + c + 1] == 0x0D &&
@@ -67,7 +82,7 @@ void dump(const char *text,
 				break;
 			}
 		}
-		fputc('\n', stream); /* newline */
+		LOGOUT_S(stream,"\n"); /* newline */
 	}
 	fflush(stream);
 }
@@ -82,7 +97,7 @@ int my_trace(CURL *handle, curl_infotype type,
 
 	switch (type) {
 	case CURLINFO_TEXT:
-		fprintf(stderr, "== Info: %s", data);
+		LOGOUT_S(stderr, "== Info: %s", data);
 		/* FALLTHROUGH */
 	default: /* in case a new one is introduced to shock us */
 		return 0;
@@ -164,7 +179,7 @@ static void init(CURLM *cm, int i)
 static void* StopServer(void *p)
 {
 	int efd = *(int*)p;
-	printf("thread efd =%d\n", efd);
+	LOGOUT("thread efd =%d\n", efd);
 
 	WAITMS(10 * 1000);
 
@@ -196,7 +211,7 @@ static int checktest(
 	const uint8_t*	unzip_data,
 	size_t			unzip_size)
 {
-	printf("chekctest2\n");
+	LOGOUT("chekctest2\n");
 
 	return 0;
 }
@@ -237,10 +252,10 @@ int main(void)
 	resp = new ResponseRuleGeneral(404);
 	auto checkfnc = [](HttpRequest& req, const uint8_t* unzip_data, size_t unzip_size)
 	{ 
-		printf("host:%s\n", req.host.c_str());
+		LOGOUT("host:%s\n", req.host.c_str());
 		if (unzip_size == NULL)
 		{
-			printf("unzip null\n");
+			LOGOUT("unzip null\n");
 		}
 
 		return 0;
@@ -263,7 +278,7 @@ int main(void)
 	int ret = pthread_create(&stop_thread, NULL, StopServer, &efd);
 	if (ret != 0)
 	{
-		printf("can not create thread : %d", ret);
+		LOGOUT("can not create thread : %d", ret);
 	}
 
 	CURLM *cm = NULL;
@@ -295,22 +310,22 @@ int main(void)
 		int res = curl_multi_wait(cm, &wfd, 1, 0, &numfds);
 		if (res != CURLM_OK) 
 		{
-			fprintf(stderr, "error: curl_multi_wait() returned %d\n", res);
+			LOGOUT_S(stderr, "error: curl_multi_wait() returned %d\n", res);
 			return EXIT_FAILURE;
 		}
 		/*
 		 if(!numfds) {
-			fprintf(stderr, "error: curl_multi_wait() numfds=%d\n", numfds);
+			LOGOUT_S(stderr, "error: curl_multi_wait() numfds=%d\n", numfds);
 			return EXIT_FAILURE;
 		 }
 		*/
 		if (wfd.revents & CURL_WAIT_POLLIN)
 		{
-			printf("CURL_WAIT_POLLIN event recv.\n");
+			LOGOUT("CURL_WAIT_POLLIN event recv.\n");
 			eventfd_t count = 0;
 			eventfd_read(efd, &count);
 
-			printf("eventfd count=%ld\n", count);
+			LOGOUT("eventfd count=%ld\n", count);
 
 			close(efd);
 
@@ -326,7 +341,7 @@ int main(void)
 
 			return_code = msg->data.result;
 			if (return_code != CURLE_OK) {
-				fprintf(stderr, "CURL error code: %d\n", msg->data.result);
+				LOGOUT_S(stderr, "CURL error code: %d\n", msg->data.result);
 				continue;
 			}
 
@@ -338,17 +353,17 @@ int main(void)
 			curl_easy_getinfo(eh, CURLINFO_PRIVATE, &szUrl);
 
 			if (http_status_code == 200) {
-				printf("200 OK for %s\n", szUrl);
+				LOGOUT("200 OK for %s\n", szUrl);
 			}
 			else {
-				fprintf(stderr, "GET of %s returned http status code %d\n", szUrl, http_status_code);
+				LOGOUT_S(stderr, "GET of %s returned http status code %d\n", szUrl, http_status_code);
 			}
 
 			curl_multi_remove_handle(cm, eh);
 			curl_easy_cleanup(eh);
 		}
 		else {
-			fprintf(stderr, "error: after curl_multi_info_read(), CURLMsg=%d\n", msg->msg);
+			LOGOUT_S(stderr, "error: after curl_multi_info_read(), CURLMsg=%d\n", msg->msg);
 		}
 	}
 
