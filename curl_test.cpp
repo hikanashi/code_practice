@@ -6,7 +6,6 @@
 #include <sys/eventfd.h>
 
 #include <curl/curl.h>
-#include "engine.h"
 
 #include "ServerAcceptHandler.h"
 #include "ResponseRuleGeneral.h"
@@ -104,31 +103,35 @@ int my_trace(CURL *handle, curl_infotype type,
 
 	case CURLINFO_HEADER_OUT:
 		text = "=> Send header";
+		dump(text, stderr, (unsigned char *)data, size, 1);
 		break;
 	case CURLINFO_DATA_OUT:
 		text = "=> Send data";
+		dump(text, stderr, (unsigned char *)data, size, 1);
 		break;
 	case CURLINFO_SSL_DATA_OUT:
 		text = "=> Send SSL data";
 		break;
 	case CURLINFO_HEADER_IN:
 		text = "<= Recv header";
+		dump(text, stderr, (unsigned char *)data, size, 1);
 		break;
 	case CURLINFO_DATA_IN:
 		text = "<= Recv data";
+		dump(text, stderr, (unsigned char *)data, size, 1);
 		break;
 	case CURLINFO_SSL_DATA_IN:
 		text = "<= Recv SSL data";
 		break;
 	}
 
-	dump(text, stderr, (unsigned char *)data, size, 1);
+
 	return 0;
 }
 
 
 static const char *urls[] = {
-  "http://localhost",
+  "https://localhost",
   "http://www.yahoo.com",
   "http://www.wikipedia.org",
   "http://slashdot.org"
@@ -156,16 +159,17 @@ static void init(CURLM *cm, int i)
 	curl_easy_setopt(eh, CURLOPT_VERBOSE, 1L);
 	
 	// test TLS
+	curl_easy_setopt(eh, CURLOPT_CRLFILE, "/opt/local/SSL/revokecrl.pem");
 //	curl_easy_setopt(eh, CURLOPT_CONNECT_TO, connect_to);
-	//curl_easy_setopt(eh, CURLOPT_SSLENGINE, "pkcs11");
-	//curl_easy_setopt(eh, CURLOPT_SSLCERT, "pkcs11://test obj;type=cert");
-	//curl_easy_setopt(eh, CURLOPT_SSLKEY, "pkcs11://test obj;type=private");
-	//curl_easy_setopt(eh, CURLOPT_SSLCERTTYPE, "ENG");
-	//curl_easy_setopt(eh, CURLOPT_SSLKEYTYPE, "ENG");
+	curl_easy_setopt(eh, CURLOPT_SSLENGINE, "pkcs11");
+	curl_easy_setopt(eh, CURLOPT_SSLCERT, "pkcs11://test obj;type=cert");
+	curl_easy_setopt(eh, CURLOPT_SSLKEY, "pkcs11://test obj;type=private");
+	curl_easy_setopt(eh, CURLOPT_SSLCERTTYPE, "ENG");
+	curl_easy_setopt(eh, CURLOPT_SSLKEYTYPE, "ENG");
 
 	char capath[1024 + 1] = { 0 };
-	getcwd(capath, sizeof(capath) - 1);
-	strcat(capath, "\\localhost_crt.pem");
+	//getcwd(capath, sizeof(capath) - 1);
+	strcat(capath, "/opt/local/SSL/rootCA.pem");
 
 	curl_easy_setopt(eh, CURLOPT_CAINFO, capath);
 
@@ -181,7 +185,7 @@ static void* StopServer(void *p)
 	int efd = *(int*)p;
 	LOGOUT("thread efd =%d\n", efd);
 
-	WAITMS(10 * 1000);
+	WAITMS(3 * 1000);
 
 	eventfd_write(efd, 5);
 	eventfd_write(efd, 9);
@@ -190,7 +194,7 @@ static void* StopServer(void *p)
 
 	eventfd_write(efd, 10);
 
-	WAITMS(3 * 1000);
+//	WAITMS(3 * 1000);
 
 	pthread_exit(NULL);
 	return NULL;
@@ -220,8 +224,8 @@ static int checktest(
 int main(void)
 {
 //	set_pkcs11_path("aaaaa", "bbbbbb");
-	_putenv("PKCS11_PRIVATEKEY=C:\\opt\\SSL\\privatekey.pem");
-	_putenv("PKCS11_CLIENTCRT=C:\\opt\\SSL\\cert.pem");
+	_putenv("PKCS11_PRIVATEKEY=/opt/local/SSL/pc1key.pem");
+	_putenv("PKCS11_CLIENTCRT=/opt/local/SSL/pc1CA.pem");
 	
 	//ENGINE_load_openssl();
 	//OPENSSL_init_ssl(OPENSSL_INIT_ENGINE_ALL_BUILTIN
@@ -271,7 +275,7 @@ int main(void)
 	efd = eventfd(0, 0);
 
 
-	connect_to = curl_slist_append(NULL, "::localhost:442");
+	//connect_to = curl_slist_append(NULL, "::localhost:442");
 
 
 	pthread_t stop_thread;
@@ -307,7 +311,7 @@ int main(void)
 
 	do {
 		int numfds = 0;
-		int res = curl_multi_wait(cm, &wfd, 1, 0, &numfds);
+		int res = curl_multi_wait(cm, 0, 0, 0, &numfds);
 		if (res != CURLM_OK) 
 		{
 			LOGOUT_S(stderr, "error: curl_multi_wait() returned %d\n", res);
@@ -333,7 +337,7 @@ int main(void)
 		}
 		curl_multi_perform(cm, &still_running);
 
-	} while (1);
+	} while (still_running);
 
 	while ((msg = curl_multi_info_read(cm, &msgs_left))) {
 		if (msg->msg == CURLMSG_DONE) {
@@ -368,6 +372,8 @@ int main(void)
 	}
 
 	curl_multi_cleanup(cm);
+
+	pthread_join(stop_thread, NULL);
 
 	return EXIT_SUCCESS;
 }
