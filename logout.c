@@ -67,7 +67,7 @@ static void set_logfile(char filepath[], size_t pathlen)
 	getcwd(filepath, pathlen - 1);
 	buflen = strlen(filepath);
 	
-	strncat(filepath, "\\", pathlen - buflen - 1);
+	strncat(filepath, "/", pathlen - buflen - 1);
 	buflen = strlen(filepath);
 
 	time_to_str(&filepath[buflen], pathlen - buflen);
