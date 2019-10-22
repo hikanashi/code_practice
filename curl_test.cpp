@@ -3,7 +3,7 @@
 
 //#include "pch.h"
 #include <stdio.h>
-#include <sys/eventfd.h>
+//#include <sys/eventfd.h>
 
 #include <curl/curl.h>
 
@@ -159,13 +159,14 @@ static void init(CURLM *cm, int i)
 	curl_easy_setopt(eh, CURLOPT_VERBOSE, 1L);
 	
 	// test TLS
-	curl_easy_setopt(eh, CURLOPT_CRLFILE, "/opt/local/SSL/revokecrl.pem");
+//	curl_easy_setopt(eh, CURLOPT_CRLFILE, "/opt/local/SSL/revokecrl.pem");
 //	curl_easy_setopt(eh, CURLOPT_CONNECT_TO, connect_to);
 	curl_easy_setopt(eh, CURLOPT_SSLENGINE, "pkcs11");
 	curl_easy_setopt(eh, CURLOPT_SSLCERT, "pkcs11://test obj;type=cert");
-	curl_easy_setopt(eh, CURLOPT_SSLKEY, "pkcs11://test obj;type=private");
 	curl_easy_setopt(eh, CURLOPT_SSLCERTTYPE, "ENG");
+	curl_easy_setopt(eh, CURLOPT_SSLKEY, "pkcs11://test obj;type=private");
 	curl_easy_setopt(eh, CURLOPT_SSLKEYTYPE, "ENG");
+//	curl_easy_setopt(eh, CURLOPT_SSL_VERIFYSTATUS, 1L);
 
 	char capath[1024 + 1] = { 0 };
 	//getcwd(capath, sizeof(capath) - 1);
@@ -187,12 +188,12 @@ static void* StopServer(void *p)
 
 	WAITMS(3 * 1000);
 
-	eventfd_write(efd, 5);
-	eventfd_write(efd, 9);
+	//eventfd_write(efd, 5);
+	//eventfd_write(efd, 9);
 
 	WAITMS(3 * 1000);
 
-	eventfd_write(efd, 10);
+	//eventfd_write(efd, 10);
 
 //	WAITMS(3 * 1000);
 
@@ -223,18 +224,16 @@ static int checktest(
 
 int main(void)
 {
+
+
+
 //	set_pkcs11_path("aaaaa", "bbbbbb");
 	_putenv("PKCS11_PRIVATEKEY=/opt/local/SSL/pc1key.pem");
 	_putenv("PKCS11_CLIENTCRT=/opt/local/SSL/pc1CA.pem");
-	
-	//ENGINE_load_openssl();
-	//OPENSSL_init_ssl(OPENSSL_INIT_ENGINE_ALL_BUILTIN
-	//			| OPENSSL_INIT_ENGINE_OPENSSL
-	//			| OPENSSL_INIT_LOAD_CONFIG, NULL);
 
 
 	SettingConnection setting;
-	//setting.exit_time.tv_sec = 10;
+	setting.exit_time.tv_sec = 10;
 //	setting.enable_tls = true;
 //	setting.certificate_chain = getcwd(NULL, 1024);
 //	setting.certificate_chain += "\\ms_server_crt.pem";
@@ -271,19 +270,22 @@ int main(void)
 
 	acceptHandler.start();
 
-	int efd = 0;
-	efd = eventfd(0, 0);
+	//int efd = 0;
+	//efd = eventfd(0, 0);
 
+	WAITMS(5 * 1000);
+
+	curl_global_init(CURL_GLOBAL_ALL);
 
 	//connect_to = curl_slist_append(NULL, "::localhost:442");
 
 
-	pthread_t stop_thread;
-	int ret = pthread_create(&stop_thread, NULL, StopServer, &efd);
-	if (ret != 0)
-	{
-		LOGOUT("can not create thread : %d", ret);
-	}
+	//pthread_t stop_thread;
+	//int ret = pthread_create(&stop_thread, NULL, StopServer, &efd);
+	//if (ret != 0)
+	//{
+	//	LOGOUT("can not create thread : %d", ret);
+	//}
 
 	CURLM *cm = NULL;
 	CURL *eh = NULL;
@@ -293,7 +295,7 @@ int main(void)
 	int http_status_code;
 	const char *szUrl;
 
-	curl_global_init(CURL_GLOBAL_ALL);
+
 
 
 	cm = curl_multi_init();
@@ -304,10 +306,10 @@ int main(void)
 
 	curl_multi_perform(cm, &still_running);
 
-	struct curl_waitfd wfd;
-	wfd.events = CURL_WAIT_POLLIN;
-	wfd.fd = efd;
-	wfd.revents = 0;
+	//struct curl_waitfd wfd;
+	//wfd.events = CURL_WAIT_POLLIN;
+	//wfd.fd = efd;
+	//wfd.revents = 0;
 
 	do {
 		int numfds = 0;
@@ -323,21 +325,23 @@ int main(void)
 			return EXIT_FAILURE;
 		 }
 		*/
-		if (wfd.revents & CURL_WAIT_POLLIN)
-		{
-			LOGOUT("CURL_WAIT_POLLIN event recv.\n");
-			eventfd_t count = 0;
-			eventfd_read(efd, &count);
+		//if (wfd.revents & CURL_WAIT_POLLIN)
+		//{
+		//	LOGOUT("CURL_WAIT_POLLIN event recv.\n");
+		//	eventfd_t count = 0;
+		//	eventfd_read(efd, &count);
 
-			LOGOUT("eventfd count=%ld\n", count);
+		//	LOGOUT("eventfd count=%ld\n", count);
 
-			close(efd);
+		//	close(efd);
 
-			break;
-		}
+		//	break;
+		//}
 		curl_multi_perform(cm, &still_running);
 
 	} while (still_running);
+
+
 
 	while ((msg = curl_multi_info_read(cm, &msgs_left))) {
 		if (msg->msg == CURLMSG_DONE) {
@@ -373,7 +377,7 @@ int main(void)
 
 	curl_multi_cleanup(cm);
 
-	pthread_join(stop_thread, NULL);
+	//pthread_join(stop_thread, NULL);
 
 	return EXIT_SUCCESS;
 }
