@@ -21,14 +21,14 @@
 #endif
 
 
-#define LOGOUT(format, ...)		\
-	do {										\
-		char logbuf[1024] = {0};				\
-		snprintf(logbuf, sizeof(logbuf), format, __VA_ARGS__);	\
-		logout(logbuf);							\
-	} while (0);
+//#define LOGOUT(format, ...)		\
+//	do {										\
+//		char logbuf[1024] = {0};				\
+//		snprintf(logbuf, sizeof(logbuf), format, __VA_ARGS__);	\
+//		logout(logbuf);							\
+//	} while (0);
 
-#define LOGOUT_S(stream, format, ...)	LOGOUT(format, __VA_ARGS__)
+#define LOGOUT_S(stream, ...)	LOGOUT(__VA_ARGS__)
 
 static
 void dump(const char *text,
@@ -91,6 +91,7 @@ int my_trace(CURL *handle, curl_infotype type,
 	char *data, size_t size,
 	void *userp)
 {
+	LOGOUT_APIIN("");
 	const char *text;
 	(void)handle; /* prevent compiler warning */
 
@@ -125,6 +126,7 @@ int my_trace(CURL *handle, curl_infotype type,
 		break;
 	}
 
+	LOGOUT_APIOUT("");
 
 	return 0;
 }
@@ -150,6 +152,7 @@ struct curl_slist * connect_to = NULL;
 
 static void init(CURLM *cm, int i)
 {
+	LOGOUT_APIIN("");
 	CURL *eh = curl_easy_init();
 	curl_easy_setopt(eh, CURLOPT_WRITEFUNCTION, cb);
 	curl_easy_setopt(eh, CURLOPT_HEADER, 0L);
@@ -178,6 +181,7 @@ static void init(CURLM *cm, int i)
 //	curl_easy_setopt(curl, CURLOPT_URL, "http://localhost:23456/test.xml");
 
 	curl_multi_add_handle(cm, eh);
+	LOGOUT_APIOUT("");
 }
 
 
@@ -216,15 +220,17 @@ static int checktest(
 	const uint8_t*	unzip_data,
 	size_t			unzip_size)
 {
-	LOGOUT("chekctest2\n");
+	LOGOUT_APIIN("");
+	LOGOUT("chekctest2 %d %d\n", req.host.size(), unzip_size);
 
+	LOGOUT_APIOUT("");
 	return 0;
 }
 
 
 int main(void)
 {
-
+	LOGOUT_APIIN("");
 
 
 //	set_pkcs11_path("aaaaa", "bbbbbb");
@@ -234,6 +240,8 @@ int main(void)
 
 	SettingConnection setting;
 	setting.exit_time.tv_sec = 10;
+	setting.enable_ocsp_stapling = true;
+	setting.verify_stapling = true;
 //	setting.enable_tls = true;
 //	setting.certificate_chain = getcwd(NULL, 1024);
 //	setting.certificate_chain += "\\ms_server_crt.pem";
@@ -341,8 +349,6 @@ int main(void)
 
 	} while (still_running);
 
-
-
 	while ((msg = curl_multi_info_read(cm, &msgs_left))) {
 		if (msg->msg == CURLMSG_DONE) {
 			eh = msg->easy_handle;
@@ -378,6 +384,19 @@ int main(void)
 	curl_multi_cleanup(cm);
 
 	//pthread_join(stop_thread, NULL);
+
+	FunctionLogListPtr loglist = FunctionLogger::GetLogger().GetLogList("my_trace", "\\d+");
+
+	size_t trace = CountFunctionLog("my_trace");
+
+	FunctionLogPtr log = loglist->getLog(1);
+
+	std::vector<std::string> args;
+	bool ret = log->parseLog("Trying (\\d+)\\.(\\d+)\\.(\\d+)\\.(\\d+)", args);
+
+//	FunctionLogListPtr  nodelay = loglist->searchLog("TCP_NODELAY");
+
+	LOGOUT_APIOUT("");
 
 	return EXIT_SUCCESS;
 }
