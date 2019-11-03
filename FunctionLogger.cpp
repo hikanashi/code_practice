@@ -39,6 +39,7 @@ size_t CountFunctionLog(
 FunctionLogger::FunctionLogger()
 	:  functions_()
 	, record_(true)
+	, mutex_()
 {
 }
 
@@ -51,6 +52,7 @@ void FunctionLogger::addFunction(
 	uint64_t line,
 	const char* log)
 {
+	std::lock_guard<std::mutex> lock(mutex_);
 	std::string func(function);
 
 	FunctionLogListPtr& functionlog = functions_[func];

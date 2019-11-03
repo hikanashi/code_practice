@@ -4,6 +4,7 @@
 #include <memory>
 #include <string>
 #include <map>
+#include <mutex>
 #include "FunctionLogList.h"
 
 #define RECORD_FUNCTION(...) RecordFunctionLog(__func__, __LINE__, __VA_ARGS__)
@@ -57,6 +58,7 @@ private:
 	std::map <std::string, FunctionLogListPtr> functions_;
 	bool record_;
 	static FunctionLogger logger_;
+	std::mutex	mutex_;
 };
 
 
