@@ -4,6 +4,7 @@
 //#include "pch.h"
 #include <stdio.h>
 //#include <sys/eventfd.h>
+#include <cstring>
 
 #include <curl/curl.h>
 
@@ -127,12 +128,12 @@ int my_trace(CURL *handle, curl_infotype type,
 	}
 
 	LOGOUT_APIOUT("");
-
 	return 0;
 }
 
 
 static const char *urls[] = {
+  "https://httpstat.us/302",
   "https://localhost",
   "http://www.yahoo.com",
   "http://www.wikipedia.org",
@@ -140,12 +141,34 @@ static const char *urls[] = {
 };
 #define CNT 1
 
-static size_t cb(char *d, size_t n, size_t l, void *p)
+typedef struct _HttpResp
 {
-	/* take care of the data here, ignored in this example */
-	(void)d;
-	(void)p;
-	return n * l;
+	std::string header;
+	std::string body;
+} HttpResp;
+
+static size_t write_header_cb(char *ptr, size_t size, size_t nmemb, void *userdata)
+{
+	std::string* data = (std::string*)userdata;
+	size_t realsize = size * nmemb;
+
+	std::string recv(ptr , realsize);
+	LOGOUT("HEADER:%s", recv.c_str());
+	data->append( recv );
+
+	return realsize;
+}
+
+static size_t write_body_cb(char *ptr, size_t size, size_t nmemb, void *userdata)
+{
+	std::string* data = (std::string*)userdata;
+	size_t realsize = size * nmemb;
+
+	std::string recv(ptr , realsize);
+//	LOGOUT("BODY:%s", recv.c_str());
+	data->append( recv );
+
+	return realsize;
 }
 
 struct curl_slist * connect_to = NULL;
@@ -154,28 +177,38 @@ static void init(CURLM *cm, int i)
 {
 	LOGOUT_APIIN("");
 	CURL *eh = curl_easy_init();
-	curl_easy_setopt(eh, CURLOPT_WRITEFUNCTION, cb);
-	curl_easy_setopt(eh, CURLOPT_HEADER, 0L);
+
+	HttpResp* res = new HttpResp();
+	curl_easy_setopt(eh, CURLOPT_PRIVATE, res);
+	curl_easy_setopt(eh, CURLOPT_WRITEFUNCTION, write_body_cb);
+	curl_easy_setopt(eh, CURLOPT_WRITEDATA, &res->body);
+	curl_easy_setopt(eh, CURLOPT_HEADERFUNCTION, write_header_cb);
+	curl_easy_setopt(eh, CURLOPT_HEADERDATA, &res->header);
+	curl_easy_setopt(eh, CURLOPT_FOLLOWLOCATION, 1L);
+	curl_easy_setopt(eh, CURLOPT_MAXREDIRS, 10L);
+
 	curl_easy_setopt(eh, CURLOPT_URL, urls[i]);
-	curl_easy_setopt(eh, CURLOPT_PRIVATE, urls[i]);
 	curl_easy_setopt(eh, CURLOPT_DEBUGFUNCTION, my_trace);
 	curl_easy_setopt(eh, CURLOPT_VERBOSE, 1L);
 	
 	// test TLS
-//	curl_easy_setopt(eh, CURLOPT_CRLFILE, "/opt/local/SSL/revokecrl.pem");
 //	curl_easy_setopt(eh, CURLOPT_CONNECT_TO, connect_to);
-	curl_easy_setopt(eh, CURLOPT_SSLENGINE, "pkcs11");
-	curl_easy_setopt(eh, CURLOPT_SSLCERT, "pkcs11://test obj;type=cert");
-	curl_easy_setopt(eh, CURLOPT_SSLCERTTYPE, "ENG");
-	curl_easy_setopt(eh, CURLOPT_SSLKEY, "pkcs11://test obj;type=private");
-	curl_easy_setopt(eh, CURLOPT_SSLKEYTYPE, "ENG");
+//	curl_easy_setopt(eh, CURLOPT_SSLENGINE, "pkcs11");
+//	curl_easy_setopt(eh, CURLOPT_SSLCERT, "pkcs11://test obj;type=cert");
+//	curl_easy_setopt(eh, CURLOPT_SSLCERTTYPE, "ENG");
+//	curl_easy_setopt(eh, CURLOPT_SSLKEY, "pkcs11://test obj;type=private");
+//	curl_easy_setopt(eh, CURLOPT_SSLKEYTYPE, "ENG");
 //	curl_easy_setopt(eh, CURLOPT_SSL_VERIFYSTATUS, 1L);
+	curl_easy_setopt(eh, CURLOPT_SSL_VERIFYHOST, 0L);
+	curl_easy_setopt(eh, CURLOPT_SSL_VERIFYPEER, 0L);
 
 	char capath[1024 + 1] = { 0 };
 	//getcwd(capath, sizeof(capath) - 1);
-	strcat(capath, "/opt/local/SSL/rootCA.pem");
+//	strcat(capath, "/opt/local/SSL/rootCA.pem");
+	strcat(capath, "/home/user/.local/ssl/rootCA.pem");
 
 	curl_easy_setopt(eh, CURLOPT_CAINFO, capath);
+//	curl_easy_setopt(eh, CURLOPT_CAPATH, "/etc/ssl/cert");
 
 //curl_easy_setopt(curl, CURLOPT_URL, "https://localhost:23456/test.xml");
 //	curl_easy_setopt(curl, CURLOPT_URL, "http://localhost:23456/test.xml");
@@ -234,8 +267,8 @@ int main(void)
 
 
 //	set_pkcs11_path("aaaaa", "bbbbbb");
-	_putenv("PKCS11_PRIVATEKEY=/opt/local/SSL/pc1key.pem");
-	_putenv("PKCS11_CLIENTCRT=/opt/local/SSL/pc1CA.pem");
+	putenv("PKCS11_PRIVATEKEY=/home/user/.local/ssl/pc1key.pem");
+	putenv("PKCS11_CLIENTCRT=/home/user/.local/ssl/pc1CA.pem");
 
 
 	SettingConnection setting;
@@ -247,7 +280,7 @@ int main(void)
 //	setting.certificate_chain += "\\ms_server_crt.pem";
 //	setting.private_key = getcwd(NULL, 1024);
 //	setting.private_key += "\\ms_server_privatekey.pem";
-
+/*
 	ServerAcceptHandler acceptHandler(setting);
 
 	// set enviroment
@@ -277,11 +310,12 @@ int main(void)
 	acceptHandler.addResponse(ResponseRulePtr(resp));
 
 	acceptHandler.start();
+	*/
 
 	//int efd = 0;
 	//efd = eventfd(0, 0);
 
-	WAITMS(5 * 1000);
+//	WAITMS(5 * 1000);
 
 	curl_global_init(CURL_GLOBAL_ALL);
 
@@ -301,7 +335,6 @@ int main(void)
 	CURLcode return_code = CURLE_OK;
 	int still_running = 0, i = 0, msgs_left = 0;
 	int http_status_code;
-	const char *szUrl;
 
 
 
@@ -361,18 +394,58 @@ int main(void)
 
 			// Get HTTP status code
 			http_status_code = 0;
-			szUrl = NULL;
+			HttpResp* res = NULL;
+			char *url = NULL;
 
 			curl_easy_getinfo(eh, CURLINFO_RESPONSE_CODE, &http_status_code);
-			curl_easy_getinfo(eh, CURLINFO_PRIVATE, &szUrl);
+			curl_easy_getinfo(eh, CURLINFO_EFFECTIVE_URL, &url);
+			curl_easy_getinfo(eh, CURLINFO_PRIVATE, &res);
+			
 
 			if (http_status_code == 200) {
-				LOGOUT("200 OK for %s\n", szUrl);
+				LOGOUT("200 OK for %s\n", url);
 			}
 			else {
-				LOGOUT_S(stderr, "GET of %s returned http status code %d\n", szUrl, http_status_code);
+				LOGOUT_S(stderr, "GET of %s returned http status code %d\n", url, http_status_code);
 			}
 
+			if( res->header.size() > 0)
+			{
+				LOGOUT("=================== HEADER START=====\n");
+				LOGOUT("%s", res->header.c_str());
+				LOGOUT("=================== HEADER END =====\n");
+				const char* endmark = "\r\n\r\n";
+				size_t endmarklen = strlen(endmark);
+				const char* crlf = "\r\n"; 
+				size_t crlflen = strlen(crlf);
+				size_t headersize = res->header.size();
+
+				auto startpos = res->header.find(crlf) + crlflen;
+				auto lastline = res->header.find(endmark);
+				auto endpos = lastline + endmarklen;
+				while(endpos < headersize)
+				{
+					startpos = res->header.find(crlf, endpos) + crlflen;
+					lastline = res->header.find(endmark, endpos);
+					endpos = lastline + endmarklen;	
+				}
+
+				if(startpos != std::string::npos)
+				{
+					std::string tmp = res->header.substr(startpos);
+					LOGOUT("=================== CUTHEADER START=====\n");
+					LOGOUT("%s\n", tmp.c_str());
+					LOGOUT("=================== CUTHEADER END=====\n");
+				}
+			}
+
+			if( res->body.size() > 0)
+			{
+				LOGOUT("=================== BODY START=====\n");
+				LOGOUT("%s", res->body.c_str());
+				LOGOUT("=================== BODY END =====\n");
+			}
+			delete res;
 			curl_multi_remove_handle(cm, eh);
 			curl_easy_cleanup(eh);
 		}
