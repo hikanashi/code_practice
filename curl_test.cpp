@@ -168,7 +168,7 @@ static size_t write_header_cb(char *ptr, size_t size, size_t nmemb, void *userda
 		if( regexec(&data->pattern_statusline, recv.c_str() , 0, NULL, 0) == 0)
 		{
 			data->data.clear();
-//			data->receiving = true;
+			data->receiving = true;
 			return realsize;
 		}
 	}
