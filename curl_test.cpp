@@ -5,7 +5,7 @@
 #include <stdio.h>
 //#include <sys/eventfd.h>
 #include <cstring>
-
+#include <regex.h>
 #include <curl/curl.h>
 
 #include "ServerAcceptHandler.h"
@@ -133,7 +133,7 @@ int my_trace(CURL *handle, curl_infotype type,
 
 
 static const char *urls[] = {
-  "https://httpstat.us/302",
+  "https://httpstat.us/301",
   "https://localhost",
   "http://www.yahoo.com",
   "http://www.wikipedia.org",
@@ -141,20 +141,47 @@ static const char *urls[] = {
 };
 #define CNT 1
 
+typedef struct _HttpRespHeader
+{
+	std::string data;
+	regex_t pattern_statusline;
+	bool receiving;
+
+} HttpRespHeader;
+
 typedef struct _HttpResp
 {
-	std::string header;
+	HttpRespHeader header;
 	std::string body;
 } HttpResp;
 
 static size_t write_header_cb(char *ptr, size_t size, size_t nmemb, void *userdata)
 {
-	std::string* data = (std::string*)userdata;
+	HttpRespHeader* data = (HttpRespHeader*)userdata;
 	size_t realsize = size * nmemb;
 
 	std::string recv(ptr , realsize);
 	LOGOUT("HEADER:%s", recv.c_str());
-	data->append( recv );
+
+	if(data->receiving == false)
+	{
+		if( regexec(&data->pattern_statusline, recv.c_str() , 0, NULL, 0) == 0)
+		{
+			data->data.clear();
+//			data->receiving = true;
+			return realsize;
+		}
+	}
+	else
+	{
+		if(recv == "\r\n")
+		{
+			data->receiving = false;
+		}
+	}
+	
+
+	data->data.append( recv );
 
 	return realsize;
 }
@@ -179,6 +206,15 @@ static void init(CURLM *cm, int i)
 	CURL *eh = curl_easy_init();
 
 	HttpResp* res = new HttpResp();
+	res->header.receiving = false;
+	int cmp = regcomp(&res->header.pattern_statusline, "HTTP/[0-9].[0-9] [0-9]+ .*", REG_EXTENDED | REG_ICASE | REG_NOSUB);
+	if( cmp != 0 )
+	{
+		char    errorbuffuer[1024] = {0};
+		regerror(cmp, &res->header.pattern_statusline, errorbuffuer, sizeof(errorbuffuer));
+		LOGOUT("### regcmp error(%d) %s\n", cmp, errorbuffuer);
+	}
+
 	curl_easy_setopt(eh, CURLOPT_PRIVATE, res);
 	curl_easy_setopt(eh, CURLOPT_WRITEFUNCTION, write_body_cb);
 	curl_easy_setopt(eh, CURLOPT_WRITEDATA, &res->body);
@@ -409,34 +445,36 @@ int main(void)
 				LOGOUT_S(stderr, "GET of %s returned http status code %d\n", url, http_status_code);
 			}
 
-			if( res->header.size() > 0)
+			if( res->header.data.size() > 0)
 			{
 				LOGOUT("=================== HEADER START=====\n");
-				LOGOUT("%s", res->header.c_str());
+				LOGOUT("%s", res->header.data.c_str());
 				LOGOUT("=================== HEADER END =====\n");
+				/*
 				const char* endmark = "\r\n\r\n";
 				size_t endmarklen = strlen(endmark);
 				const char* crlf = "\r\n"; 
 				size_t crlflen = strlen(crlf);
-				size_t headersize = res->header.size();
+				size_t headersize = res->header.data.size();
 
-				auto startpos = res->header.find(crlf) + crlflen;
-				auto lastline = res->header.find(endmark);
+				auto startpos = res->header.data.find(crlf) + crlflen;
+				auto lastline = res->header.data.find(endmark);
 				auto endpos = lastline + endmarklen;
 				while(endpos < headersize)
 				{
-					startpos = res->header.find(crlf, endpos) + crlflen;
-					lastline = res->header.find(endmark, endpos);
+					startpos = res->header.data.find(crlf, endpos) + crlflen;
+					lastline = res->header.data.find(endmark, endpos);
 					endpos = lastline + endmarklen;	
 				}
 
 				if(startpos != std::string::npos)
 				{
-					std::string tmp = res->header.substr(startpos);
+					std::string tmp = res->header.data.substr(startpos);
 					LOGOUT("=================== CUTHEADER START=====\n");
 					LOGOUT("%s\n", tmp.c_str());
 					LOGOUT("=================== CUTHEADER END=====\n");
 				}
+				*/
 			}
 
 			if( res->body.size() > 0)
@@ -445,6 +483,8 @@ int main(void)
 				LOGOUT("%s", res->body.c_str());
 				LOGOUT("=================== BODY END =====\n");
 			}
+
+			regfree(&res->header.pattern_statusline);
 			delete res;
 			curl_multi_remove_handle(cm, eh);
 			curl_easy_cleanup(eh);
