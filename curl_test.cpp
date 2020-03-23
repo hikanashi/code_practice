@@ -5,7 +5,11 @@
 #include <stdio.h>
 //#include <sys/eventfd.h>
 #include <cstring>
+#ifdef _WIN32
+#include <pcreposix.h>
+#else
 #include <regex.h>
+#endif
 #include <curl/curl.h>
 
 #include "ServerAcceptHandler.h"
@@ -508,6 +512,8 @@ int main(void)
 	bool ret = log->parseLog("Trying (\\d+)\\.(\\d+)\\.(\\d+)\\.(\\d+)", args);
 
 //	FunctionLogListPtr  nodelay = loglist->searchLog("TCP_NODELAY");
+
+	curl_global_cleanup();
 
 	LOGOUT_APIOUT("");
 
