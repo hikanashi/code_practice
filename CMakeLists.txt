@@ -6,8 +6,6 @@ add_executable(curl_test
 	${SOURCES}
 )
 
-message("CMAKE_PREFIX_PATH:${CMAKE_PREFIX_PATH}")
-
 find_package(CURL CONFIG REQUIRED)
 target_link_libraries(curl_test PRIVATE CURL::libcurl)
 
@@ -20,25 +18,22 @@ target_link_libraries(curl_test PRIVATE ${PCRE_LIBRARY})
 
 find_package(pthread)
 target_link_libraries(curl_test PRIVATE ${PTHREAD_LIBRARY})
-message("PTHREAD_LIBRARY:${PTHREAD_LIBRARY}")
+
 
 if(MSVC)
-#	set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /LIBPATH:\"c:\\opt\\local\\lib\"")
+	foreach(ROOTDIR ${CMAKE_PREFIX_PATH})
+		file(GLOB RESOURCELIST ${ROOTDIR}/bin/*.dll)
+
+		foreach(RESOURCE ${RESOURCELIST})
+			add_custom_command(TARGET curl_test POST_BUILD
+				COMMAND ${CMAKE_COMMAND} -E copy_if_different
+				${RESOURCE}
+				$<TARGET_FILE_DIR:curl_test>)
+		endforeach()
+	endforeach()
 
 	set(LIBS
 		mockhttpd
-#		libcurl
-#		event
-#		event_openssl
-#		libssl
-#		libcrypto
-#		zlib
-#		nghttp2
-#		ws2_32
-#		pthreadVC2
-#		CRYPT32
-#		Wldap32
-#		Normaliz
 	)
 
 else()
