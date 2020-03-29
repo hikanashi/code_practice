@@ -16,11 +16,17 @@ target_link_libraries(curl_test PRIVATE OpenSSL::SSL OpenSSL::Crypto)
 find_library(PCRE_LIBRARY pcreposix)
 target_link_libraries(curl_test PRIVATE ${PCRE_LIBRARY})
 
-find_package(pthread)
+find_package(pthreads)
 target_link_libraries(curl_test PRIVATE ${PTHREAD_LIBRARY})
+
+include_directories(${CMAKE_SOURCE_DIR}/mockhttpd)
+
+target_link_libraries(curl_test PRIVATE mockhttpd)
 
 
 if(MSVC)
+	target_link_libraries(curl_test PRIVATE eventfd)
+
 	foreach(ROOTDIR ${CMAKE_PREFIX_PATH})
 		file(GLOB RESOURCELIST ${ROOTDIR}/bin/*.dll)
 
@@ -31,10 +37,6 @@ if(MSVC)
 				$<TARGET_FILE_DIR:curl_test>)
 		endforeach()
 	endforeach()
-
-	set(LIBS
-		mockhttpd
-	)
 
 else()
 
