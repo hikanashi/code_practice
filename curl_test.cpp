@@ -137,8 +137,8 @@ int my_trace(CURL *handle, curl_infotype type,
 
 
 static const char *urls[] = {
+  "https://127.0.0.1",
   "https://httpstat.us/301",
-  "https://localhost",
   "http://www.yahoo.com",
   "http://www.wikipedia.org",
   "http://slashdot.org"
@@ -233,23 +233,26 @@ static void init(CURLM *cm, int i)
 	
 	// test TLS
 //	curl_easy_setopt(eh, CURLOPT_CONNECT_TO, connect_to);
-//	curl_easy_setopt(eh, CURLOPT_SSLENGINE, "pkcs11");
-//	curl_easy_setopt(eh, CURLOPT_SSLCERT, "pkcs11://test obj;type=cert");
-//	curl_easy_setopt(eh, CURLOPT_SSLCERTTYPE, "ENG");
-//	curl_easy_setopt(eh, CURLOPT_SSLKEY, "pkcs11://test obj;type=private");
-//	curl_easy_setopt(eh, CURLOPT_SSLKEYTYPE, "ENG");
+	curl_easy_setopt(eh, CURLOPT_SSLENGINE, "pkcs11");
+	curl_easy_setopt(eh, CURLOPT_SSLCERT, "pkcs11://test obj;type=cert");
+	curl_easy_setopt(eh, CURLOPT_SSLCERTTYPE, "ENG");
+	curl_easy_setopt(eh, CURLOPT_SSLKEY, "pkcs11://test obj;type=private");
+	curl_easy_setopt(eh, CURLOPT_SSLKEYTYPE, "ENG");
 //	curl_easy_setopt(eh, CURLOPT_SSL_VERIFYSTATUS, 1L);
 	curl_easy_setopt(eh, CURLOPT_SSL_VERIFYHOST, 0L);
 	curl_easy_setopt(eh, CURLOPT_SSL_VERIFYPEER, 0L);
 
 	char capath[1024 + 1] = { 0 };
 	//getcwd(capath, sizeof(capath) - 1);
-//	strcat(capath, "/opt/local/SSL/rootCA.pem");
+#ifdef _WIN32
+	strcat(capath, "/opt/local/SSL/rootCA.pem");
+#else
 	strcat(capath, "/home/user/.local/ssl/rootCA.pem");
+#endif
 
 	curl_easy_setopt(eh, CURLOPT_CAINFO, capath);
 //	curl_easy_setopt(eh, CURLOPT_CAPATH, "/etc/ssl/cert");
-
+	
 //curl_easy_setopt(curl, CURLOPT_URL, "https://localhost:23456/test.xml");
 //	curl_easy_setopt(curl, CURLOPT_URL, "http://localhost:23456/test.xml");
 
@@ -307,20 +310,47 @@ int main(void)
 
 
 //	set_pkcs11_path("aaaaa", "bbbbbb");
+#ifdef _WIN32
+	putenv("PKCS11_PRIVATEKEY=/opt/local/ssl/pc1key.pem");
+	putenv("PKCS11_CLIENTCRT=/opt/local/ssl/pc1CA.pem");
+#else
 	putenv("PKCS11_PRIVATEKEY=/home/user/.local/ssl/pc1key.pem");
 	putenv("PKCS11_CLIENTCRT=/home/user/.local/ssl/pc1CA.pem");
+#endif
+
+	char curdir[1024 + 1] = { 0 };
+//	getcwd(curdir, sizeof(curdir) - 1);
+	strcpy(curdir, "C:\\opt\\local\\ssl");
+
+	char confpath[1024 + 1] = { 0 };
+#ifdef _WIN32
+	snprintf(confpath, sizeof(confpath) - 1, "OPENSSL_CONF=%s\\openssl.cnf", curdir);
+#else
+	snprintf(confpath, sizeof(confpath)-1, "OPENSSL_CONF=%s/openssl.cnf", curdir);
+#endif
+	LOGOUT("### env %s\n", confpath);
+	putenv(confpath);
+
+	putenv("OPENSSL_ENGINES=/opt/local/lib/");
+
+
+	char sslpath[1024 + 1] = { 0 };
+	snprintf(sslpath, sizeof(sslpath) - 1, "OPENSSL_DIR=%s", curdir);
+
+
+	const char* confenv = getenv("OPENSSL_CONF");
+	LOGOUT("### get OPENSSL_CONF=%s\n", confenv ? confenv : "null");
 
 
 	SettingConnection setting;
 	setting.exit_time.tv_sec = 10;
 	setting.enable_ocsp_stapling = true;
 	setting.verify_stapling = true;
-//	setting.enable_tls = true;
 //	setting.certificate_chain = getcwd(NULL, 1024);
 //	setting.certificate_chain += "\\ms_server_crt.pem";
 //	setting.private_key = getcwd(NULL, 1024);
 //	setting.private_key += "\\ms_server_privatekey.pem";
-/*
+
 	ServerAcceptHandler acceptHandler(setting);
 
 	// set enviroment
@@ -350,7 +380,6 @@ int main(void)
 	acceptHandler.addResponse(ResponseRulePtr(resp));
 
 	acceptHandler.start();
-	*/
 
 	//int efd = 0;
 	//efd = eventfd(0, 0);
