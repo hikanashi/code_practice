@@ -4,7 +4,7 @@
 FunctionLogger FunctionLogger::logger_;
 
 
-void RecordFunctionLog(
+void LogoutFunction(
 	const char* function,
 	uint64_t line,
 	const char* format,
@@ -18,7 +18,7 @@ void RecordFunctionLog(
 	vsnprintf(tmpbuf, sizeof(tmpbuf) - 1, format, args);
 	va_end(args);
 
-	FunctionLogger::GetLogger().addFunction(function, line, tmpbuf);
+	FunctionLogger::GetLogger().logout(function, line, tmpbuf);
 
 	return;
 }
@@ -29,16 +29,10 @@ void ResetFunctionLog()
 	return;
 }
 
-size_t CountFunctionLog(
-	const char* function)
-{
-	return 	FunctionLogger::GetLogger().CountAPILog(function);
-}
 
 
 FunctionLogger::FunctionLogger()
 	:  functions_()
-	, record_(true)
 	, mutex_()
 {
 }
@@ -47,7 +41,7 @@ FunctionLogger::~FunctionLogger()
 {
 }
 
-void FunctionLogger::addFunction(
+void FunctionLogger::logout(
 	const char* function,
 	uint64_t line,
 	const char* log)
@@ -62,48 +56,72 @@ void FunctionLogger::addFunction(
 		functionlog = FunctionLogListPtr(new FunctionLogList(function));
 	}
 
-	functionlog->addFunctionLog(function, line, log);
+	functionlog->logout(function, line, log);
 }
 
-FunctionLogListPtr FunctionLogger::GetLogList(
-	const char* function,
-	const char* pattern)
+FunctionLogEvalPtr FunctionLogger::addPattern(
+						const char* function,
+						const char* pattern)
 {
-	std::string func(function);
-	FunctionLogListPtr list = functions_[func];
-
-	if (!list)
+	FunctionLogEvalPtr eval;
+	
+	if(function == NULL)
 	{
-		list = FunctionLogListPtr(new FunctionLogList(function));
-		return list;
+		return eval;
 	}
-
-	if (pattern == NULL)
-	{
-		return list;
-	}
-	else
-	{
-		return list->searchLog(pattern);
-
-	}
+	
+	eval = FunctionLogEvalPtr(new FunctionLogEval(function));
+	eval->setPattern(pattern);
+	
+	FunctionLogger::GetLogger().addEval(eval);
+	
+	return eval;
 }
 
-size_t FunctionLogger::CountAPILog(const char* function)
+void FunctionLogger::addEval(
+		FunctionLogEvalPtr eval)
 {
-	std::string func(function);
-	FunctionLogListPtr list = functions_[func];
-
-	if (!list)
+	if(!eval)
 	{
-		return 0;
+		return;
 	}
 
-	FunctionLogListPtr apilog = list->searchLog("\\[API_IN\\]");
+	
+	std::string func = eval->getFunction();
+	
+	std::lock_guard<std::mutex> lock(mutex_);	
+	FunctionLogListPtr& functionlog = functions_[func];
 
-	return apilog->size();
+	if (!functionlog)
+	{
+		functionlog = FunctionLogListPtr(new FunctionLogList(func.c_str()));
+	}
+	
+	functionlog->addFunctionEval(eval);
 }
 
+
+void FunctionLogger::delEval(
+		FunctionLogEvalPtr eval)
+{
+	if(!eval)
+	{
+		return;
+	}
+	
+	std::string func = eval->getFunction();
+	
+	std::lock_guard<std::mutex> lock(mutex_);	
+
+	FunctionLogListPtr& functionlog = functions_[func];
+
+	if (!functionlog)
+	{
+		return;
+	}
+
+	functionlog->delFunctionEval(eval);
+}
 
 void FunctionLogger::reset()
 {

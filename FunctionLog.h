@@ -22,8 +22,6 @@ public:
 		const char* pattern,
 		std::vector<std::string>& result);
 
-
-
 private:
 	std::string function_;
 	uint64_t	line_;

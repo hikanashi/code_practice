@@ -1,9 +1,10 @@
 #include "FunctionLogList.h"
-#include <regex>
+#include "FunctionLog.h"
+#include <algorithm>
 
 FunctionLogList::FunctionLogList(const char*  function)
 	: function_(function)
-	, list_()
+	, evals_()
 {
 }
 
@@ -11,61 +12,54 @@ FunctionLogList::~FunctionLogList()
 {
 }
 
-void FunctionLogList::addFunctionLog(
+void FunctionLogList::logout(
 	const char* function,
 	uint64_t line,
 	const char* log)
 {
 
-	FunctionLogPtr functionlog =
-		FunctionLogPtr(
-			new FunctionLog(function, line, log));
+	FunctionLog functionlog(function, line, log);
 
-	list_.push_back(functionlog);
+	for (FunctionLogEvalPtr& eval : evals_)
+	{
+		if(eval)
+		{
+			if( eval->IsProcess(functionlog) != false )
+			{
+				eval->Process(functionlog);
+			}
+		}
+	}
 
+}
+
+void FunctionLogList::addFunctionEval(
+		FunctionLogEvalPtr eval)
+{
+	evals_.push_back(eval);
+
+}
+
+void FunctionLogList::delFunctionEval(
+		FunctionLogEvalPtr eval)
+{
+	auto itr = evals_.begin();
+	while (itr != evals_.end())
+	{
+		if((*itr) == eval)
+		{
+			itr = evals_.erase(itr);
+			break;
+		}
+		else
+		{
+			itr++;
+		}
+	}
 }
 
 const std::string&  FunctionLogList::getFunction()
 { 
 	return function_;
-}
-
-const FunctionLogPtr  FunctionLogList::getLog(size_t index) 
-{ 
-	FunctionLogPtr ret;
-
-	if (index >= list_.size())
-	{
-		return ret;
-	}
-
-	return list_[index];
-}
-size_t FunctionLogList::size()
-{ 
-	return list_.size(); 
-}
-
-FunctionLogListPtr FunctionLogList::searchLog(
-	const char* pattern)
-{
-	FunctionLogListPtr ret = 
-				FunctionLogListPtr(new FunctionLogList(function_.c_str()));
-
-	std::regex re(pattern);
-	std::smatch match;
-
-	for (FunctionLogPtr funclog : list_)
-	{
-		const std::string& log = funclog->getLog();
-		if (std::regex_search(log, match, re) != false)
-		{ 
-			ret->list_.push_back(funclog);
-
-		}
-	}
-
-
-	return ret;
 }
 

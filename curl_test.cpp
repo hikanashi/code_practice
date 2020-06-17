@@ -309,6 +309,9 @@ int main(void)
 	LOGOUT_APIIN("");
 
 
+	FunctionLogEvalPtr initeval = FunctionLogger::addPattern("init", "\\[API_IN\\]");
+
+
 //	set_pkcs11_path("aaaaa", "bbbbbb");
 #ifdef _WIN32
 	putenv("PKCS11_PRIVATEKEY=/opt/local/ssl/pc1key.pem");
@@ -531,16 +534,18 @@ int main(void)
 
 	//pthread_join(stop_thread, NULL);
 
-	FunctionLogListPtr loglist = FunctionLogger::GetLogger().GetLogList("my_trace", "\\d+");
+//	FunctionLogListPtr loglist = FunctionLogger::GetLogger().GetLogList("my_trace", "\\d+");
 
-	size_t trace = CountFunctionLog("my_trace");
+//	size_t trace = CountFunctionLog("my_trace");
 
-	FunctionLogPtr log = loglist->getLog(1);
+//	FunctionLogPtr log = loglist->getLog(1);
 
-	std::vector<std::string> args;
-	bool ret = log->parseLog("Trying (\\d+)\\.(\\d+)\\.(\\d+)\\.(\\d+)", args);
+//	std::vector<std::string> args;
+//	bool ret = log->parseLog("Trying (\\d+)\\.(\\d+)\\.(\\d+)\\.(\\d+)", args);
 
 //	FunctionLogListPtr  nodelay = loglist->searchLog("TCP_NODELAY");
+
+	initeval->getCount();
 
 	curl_global_cleanup();
 

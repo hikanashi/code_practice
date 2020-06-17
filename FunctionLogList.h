@@ -3,10 +3,10 @@
 
 #include <memory>
 #include <vector>
-#include "FunctionLog.h"
+#include "FunctionLogEval.h"
 
-class FunctionLogList;
-typedef std::shared_ptr<FunctionLogList> FunctionLogListPtr;
+// class FunctionLogList;
+// typedef std::shared_ptr<FunctionLogList> FunctionLogListPtr;
 
 class FunctionLogList
 {
@@ -15,24 +15,22 @@ public:
 
 	virtual ~FunctionLogList();
 
-	void addFunctionLog(
+	void logout(
 		const char* function,
 		uint64_t line,
 		const char* log);
+		
+	void addFunctionEval(
+		FunctionLogEvalPtr eval);
 
-	const FunctionLogPtr getLog(
-							size_t index);
-
-	FunctionLogListPtr searchLog(
-						const char* pattern);
-
-	size_t size();
+	void delFunctionEval(
+		FunctionLogEvalPtr eval);
 
 	const std::string& getFunction();
 
 private:
 	std::string function_;
-	std::vector<FunctionLogPtr> list_;
+	std::vector<FunctionLogEval*> evals_;
 };
 
 typedef std::shared_ptr<FunctionLogList> FunctionLogListPtr;

@@ -7,23 +7,19 @@
 #include <mutex>
 #include "FunctionLogList.h"
 
-#define RECORD_FUNCTION(...) RecordFunctionLog(__func__, __LINE__, __VA_ARGS__)
+#define RECORD_FUNCTION(msg, ...) LogoutFunction(__func__, __LINE__, msg, ##__VA_ARGS__)
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-void RecordFunctionLog(
+void LogoutFunction(
 		const char* function,
 		uint64_t line,
 		const char* format,
 		...);
 
-
 void ResetFunctionLog();
-
-size_t CountFunctionLog(
-	const char* function);
 
 #ifdef __cplusplus
 }
@@ -34,17 +30,24 @@ class FunctionLogger
 public:
 	static FunctionLogger& GetLogger() { return logger_; }
 
-	void addFunction(
+	void logout(
 		const char* function,
 		uint64_t line,
 		const char* log);
+		
+	static
+	FunctionLogEvalPtr addPattern(
+			const char* function,
+			const char* pattern);
+
+	void addEval(
+		FunctionLogEvalPtr eval);
+
+	void delEval(
+		FunctionLogEvalPtr eval);
 
 	void reset();
 
-	FunctionLogListPtr  GetLogList(const char* function,
-									const char* pattern = NULL);
-
-	size_t              CountAPILog(const char* function);
 
 protected:
 	FunctionLogger();
@@ -56,9 +59,9 @@ private:
 
 private:
 	std::map <std::string, FunctionLogListPtr> functions_;
-	bool record_;
-	static FunctionLogger logger_;
 	std::mutex	mutex_;
+
+	static FunctionLogger logger_;
 };
 
 
