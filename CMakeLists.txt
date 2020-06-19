@@ -1,6 +1,6 @@
 
 file(GLOB SOURCES 
-	${CMAKE_CURRENT_SOURCE_DIR}/*.c*)
+	${CMAKE_CURRENT_SOURCE_DIR}/*.*)
 
 add_executable(curl_test
 	${SOURCES}
