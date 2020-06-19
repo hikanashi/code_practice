@@ -16,6 +16,7 @@
 #include "ResponseRuleGeneral.h"
 
 #include "logout.h"
+#include <thread>
 
 
 #ifdef _WIN32
@@ -96,7 +97,7 @@ int my_trace(CURL *handle, curl_infotype type,
 	char *data, size_t size,
 	void *userp)
 {
-	LOGOUT_APIIN("");
+	LOGOUT_APIIN("handle=%p type=%d", handle, type);
 	const char *text;
 	(void)handle; /* prevent compiler warning */
 
@@ -206,7 +207,7 @@ struct curl_slist * connect_to = NULL;
 
 static void init(CURLM *cm, int i)
 {
-	LOGOUT_APIIN("");
+	LOGOUT_APIIN("cm=%p i=%d", cm, i);
 	CURL *eh = curl_easy_init();
 
 	HttpResp* res = new HttpResp();
@@ -263,8 +264,8 @@ static void init(CURLM *cm, int i)
 
 static void* StopServer(void *p)
 {
-	int efd = *(int*)p;
-	LOGOUT("thread efd =%d\n", efd);
+	//int efd = *(int*)p;
+	//LOGOUT("thread efd =%d\n", efd);
 
 	WAITMS(3 * 1000);
 
@@ -272,6 +273,8 @@ static void* StopServer(void *p)
 	//eventfd_write(efd, 9);
 
 	WAITMS(3 * 1000);
+
+	LOGOUT("complete server");
 
 	//eventfd_write(efd, 10);
 
@@ -309,8 +312,11 @@ int main(void)
 	LOGOUT_APIIN("");
 
 
-	FunctionLogEvalPtr initeval = FunctionLogger::addPattern("init", "\\[API_IN\\]");
+	FunctionLogEvalPtr initeval = FunctionLogger::addPattern("init", "\\[API_IN\\].*cm=(.*) i=(.+)");
 
+	FunctionLogEvalPtr stopserverlog = FunctionLogger::addPattern("StopServer", "complete server");
+
+	
 
 //	set_pkcs11_path("aaaaa", "bbbbbb");
 #ifdef _WIN32
@@ -409,7 +415,8 @@ int main(void)
 	int http_status_code;
 
 
-
+//	std::thread th(StopServer, (void*)NULL);
+//	stopserverlog->wait();
 
 	cm = curl_multi_init();
 
@@ -545,7 +552,12 @@ int main(void)
 
 //	FunctionLogListPtr  nodelay = loglist->searchLog("TCP_NODELAY");
 
-	initeval->getCount();
+	size_t count = initeval->getCount();
+	LOGOUT_S(stderr, "count:%d res[0]=%s res[1]=%s res[2]=%s\n", 
+		count, 
+		initeval->getResult(0).c_str(),
+		initeval->getResult(1).c_str(),
+		initeval->getResult(2).c_str() );
 
 	curl_global_cleanup();
 
