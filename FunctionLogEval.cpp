@@ -7,7 +7,7 @@ FunctionLogEval::FunctionLogEval(const char* function)
 	, pattern_()
 	, result_()
 	, count_(0)
-	, notify_(false)
+	, notify_(0)
 	, mtx_()
 	, cond_()
 {
@@ -28,7 +28,21 @@ size_t FunctionLogEval::getCount()
 	return count_;
 }
 
-const std::vector<std::string>& FunctionLogEval::getResult()
+const std::string& getResult(size_t idx);
+const std::vector<std::string>& getResultList();
+
+const std::string FunctionLogEval::getResult(size_t idx)
+{
+	if (idx >= result_.size())
+	{
+		std::string ret;
+		return ret;
+	}
+
+	return result_[idx];
+}
+
+const std::vector<std::string>& FunctionLogEval::getResultList()
 {
 	return result_;
 }
@@ -55,7 +69,7 @@ void FunctionLogEval::Process( FunctionLog& log )
 	std::lock_guard<std::mutex> lk(mtx_);
 	
 	count_++;
-	notify_ = true;
+	notify_ ++;
 	
 	cond_.notify_all();
 }
@@ -63,5 +77,6 @@ void FunctionLogEval::Process( FunctionLog& log )
 void FunctionLogEval::wait()
 {
 	std::unique_lock<std::mutex> lk(mtx_);
-	cond_.wait(lk, [&]{ return notify_; });
+	cond_.wait(lk, [&]{ return ( notify_ > 0 ); });
+	notify_--;
 }

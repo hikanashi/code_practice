@@ -30,7 +30,7 @@ public:
 
 private:
 	std::string function_;
-	std::vector<FunctionLogEval*> evals_;
+	std::vector<FunctionLogEvalPtr> evals_;
 };
 
 typedef std::shared_ptr<FunctionLogList> FunctionLogListPtr;

@@ -21,7 +21,8 @@ public:
 
 	std::string getFunction();
 	size_t getCount();
-	const std::vector<std::string>& getResult();
+	const std::string getResult(size_t idx);
+	const std::vector<std::string>& getResultList();
 
 	virtual bool IsProcess( FunctionLog& log );
 	virtual void Process( FunctionLog& log );
@@ -35,12 +36,12 @@ private:
 	std::string pattern_;
 	std::vector<std::string> result_;
 	size_t   count_;
-	bool     notify_;
+	size_t   notify_;
 	std::mutex mtx_;
  	std::condition_variable cond_;
 };
 
-typedef FunctionLogEval* FunctionLogEvalPtr;
+typedef std::shared_ptr<FunctionLogEval> FunctionLogEvalPtr;
 
 
 #endif
