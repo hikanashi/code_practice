@@ -28,28 +28,17 @@ size_t FunctionLogEval::getCount()
 	return count_;
 }
 
-const std::string& getResult(size_t idx);
-const std::vector<std::string>& getResultList();
-
-const std::string FunctionLogEval::getResult(size_t idx)
-{
-	if (idx >= result_.size())
-	{
-		std::string ret;
-		return ret;
-	}
-
-	return result_[idx];
-}
-
 const std::vector<std::string>& FunctionLogEval::getResultList()
 {
 	return result_;
 }
 
 void FunctionLogEval::setPattern(const char* pattern)
-{ 
-	pattern_ = pattern;
+{
+	if (pattern != nullptr)
+	{
+		pattern_ = pattern;
+	}
 }
 
 bool FunctionLogEval::IsProcess( FunctionLog& log )

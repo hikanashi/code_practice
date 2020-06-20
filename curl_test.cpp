@@ -275,12 +275,13 @@ static void* StopServer(void *p)
 	WAITMS(3 * 1000);
 
 	LOGOUT("complete server");
+	LOGOUT("complete server");
 
 	//eventfd_write(efd, 10);
 
-//	WAITMS(3 * 1000);
+	WAITMS(5 * 1000);
 
-	pthread_exit(NULL);
+//	pthread_exit(NULL);
 	return NULL;
 }
 
@@ -312,10 +313,11 @@ int main(void)
 	LOGOUT_APIIN("");
 
 
-	FunctionLogEvalPtr initeval = FunctionLogger::addPattern("init", "\\[API_IN\\].*cm=(.*) i=(.+)");
+	FunctionLogEvalPtr initeval = FunctionLogger::addAPIIN("init", ".*cm=(.*) i=(.+)");
 
 	FunctionLogEvalPtr stopserverlog = FunctionLogger::addPattern("StopServer", "complete server");
 
+	FunctionLogEvalPtr mytracelog = FunctionLogger::addAPIIN("my_trace");
 	
 
 //	set_pkcs11_path("aaaaa", "bbbbbb");
@@ -415,8 +417,12 @@ int main(void)
 	int http_status_code;
 
 
-//	std::thread th(StopServer, (void*)NULL);
-//	stopserverlog->wait();
+	std::thread th(StopServer, (void*)NULL);
+	stopserverlog->wait();
+
+	WAITMS(3 * 1000);
+	stopserverlog->wait();
+
 
 	cm = curl_multi_init();
 
@@ -552,12 +558,22 @@ int main(void)
 
 //	FunctionLogListPtr  nodelay = loglist->searchLog("TCP_NODELAY");
 
-	size_t count = initeval->getCount();
-	LOGOUT_S(stderr, "count:%d res[0]=%s res[1]=%s res[2]=%s\n", 
-		count, 
-		initeval->getResult(0).c_str(),
-		initeval->getResult(1).c_str(),
-		initeval->getResult(2).c_str() );
+	size_t count = mytracelog->getCount();
+	LOGOUT_S(stderr, "count:%d\n", count);
+
+	bool ret = false;
+
+	void* ptr = nullptr;
+	ret = initeval->getResult(0, ptr);
+	LOGOUT_S(stderr, "value:%p ret=%d\n", ptr, ret);
+
+	unsigned int index = 0;
+	ret = initeval->getResult(1, index);
+	LOGOUT_S(stderr, "value:%u ret=%d\n", index, ret);
+
+	ResetFunctionLog();
+
+	th.join();
 
 	curl_global_cleanup();
 
