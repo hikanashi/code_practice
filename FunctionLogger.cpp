@@ -59,6 +59,32 @@ void FunctionLogger::logout(
 	functionlog->logout(function, line, log);
 }
 
+FunctionLogEvalPtr FunctionLogger::addAPIIN(
+	const char* function,
+	const char* append_pattern)
+{
+	std::string pattern = "\\[API_IN\\]";
+	if (append_pattern != nullptr)
+	{
+		pattern += append_pattern;
+	}
+
+	return FunctionLogger::addPattern(function, pattern.c_str());
+}
+
+FunctionLogEvalPtr FunctionLogger::addAPIOUT(
+	const char* function,
+	const char* append_pattern)
+{
+	std::string pattern = "\\[API_OUT\\]";
+	if (append_pattern != nullptr)
+	{
+		pattern += append_pattern;
+	}
+
+	return FunctionLogger::addPattern(function, pattern.c_str());
+}
+
 FunctionLogEvalPtr FunctionLogger::addPattern(
 						const char* function,
 						const char* pattern)

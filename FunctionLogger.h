@@ -34,7 +34,17 @@ public:
 		const char* function,
 		uint64_t line,
 		const char* log);
-		
+
+	static
+	FunctionLogEvalPtr	addAPIIN(
+			const char* function,
+			const char* append_pattern = nullptr);
+
+	static
+	FunctionLogEvalPtr	addAPIOUT(
+			const char* function,
+			const char* append_pattern = nullptr);
+
 	static
 	FunctionLogEvalPtr addPattern(
 			const char* function,
