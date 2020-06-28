@@ -45,6 +45,7 @@ bool FunctionLog::parseLog(
 		return false;
 	}
 
+	result.clear();
 	// skip all submatch string. so start index=1
 	for (size_t idx = 1; idx != match.size(); idx++) 
 	{
