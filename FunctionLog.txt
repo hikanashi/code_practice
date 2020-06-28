@@ -1,0 +1,69 @@
+テスト実行中に出力されるログを使って下記が実行可能です。、
+　　　・条件に一致するログの出力回数をカウント
+　　　・該当ログが出力されるまでwaitする
+　　　・ログで出力された値を取得する
+
+■テスト実行前に実施すること
+　出力されるログの条件を登録します。
+　ログ条件登録前に出力されたログは処理対象外のため、対象関数実行前に登録してください。
+
+　●任意のログ条件を登録する
+  　　形式：FunctionLogEvalPtr FunctionLogger::addPattern(関数名 ,ログ条件);
+　　　出力回数カウントやwait解除させるログの条件を登録します。
+　　　ログ条件は正規表現で指定が可能です。
+　　　ログ条件にnullptrを指定した場合は、指定関数のログ全てに一致します。
+　　　ログ条件は、()でグループ化することで、指定内容を後方参照することが可能です
+　　　(「ログ出力された結果を取得」参照)
+
+　●関数IN/OUTログを一致条件として登録する
+ 　　 ・API INログ
+　　　　FunctionLogEvalPtr FunctionLogger::addAPIIN(関数名 [, 追加条件]);
+ 　　 ・API OUTログ
+　　　　FunctionLogEvalPtr FunctionLogger::addAPIOUT(関数名 [, 追加条件]);
+
+　　   addPatternと同じですが、指定された関数のAPI IN/API OUTの条件を自動設定します。
+   　　API IN/API OUTに続いて条件を追加したい場合は、追加条件を指定してください。
+
+■ログ条件出力後に実施できること
+　●ログの出力回数を取得
+　　size_t FunctionLogEval::getCount()
+　　　ログ条件に一致したログ出力回数を取得します。
+　　　例)test()内でmy_trace関数が実行された回数を取得する。
+			FunctionLogEvalPtr mytracelog = FunctionLogger::addAPIIN("my_trace");
+			test();
+			printf("count=%ld\n", mytracelog->getCount());
+
+　●指定されたログが出力されるまでwait
+　　void FunctionLogEval::wait()
+　　　別スレッドでログ条件が一致するログが出力されるまでwaitします。
+　　　なお、wait前に該当ログが出力された場合は、waitしません。
+　　　例）別スレッドで実行するStopServer内で、"complete server"のログが出るまで待機する
+			FunctionLogEvalPtr stopserverlog = FunctionLogger::addPattern("StopServer", "complete server");
+			std::thread th(StopServer, (void*)NULL);
+			stopserverlog->wait();
+			printf("next test run\n");
+
+　●ログ出力された結果を取得
+　　bool FunctionLogEval::getResult(size_t idx, T& value)
+　　　　戻り値：true：該当ログ取得成功  false:該当ログ取得(データ型変換)失敗
+　　　　idx [in]   ：ログ条件で()で指定したグループ化の添え字(0開始)
+　　　　value [out]：取得する値の格納先(参照)
+　　　　　※ログ内容(テキスト)をvalueで指定されたデータ型に変換します。
+　　　　　　std::string型のvalueを指定した場合は、データ型を変換せずそのまま取得します。
+　　　　　※ログ条件に該当するログが複数ある場合、最後のログ出力の結果を取得します。
+	例）test()内のinit関数のAPI INログ"cm=%p i=%d"で出力したポインタ(cm)とカウンタ(i)の値を取得する
+		FunctionLogEvalPtr initeval = FunctionLogger::addAPIIN("init", ".*cm=(.*) i=(.+)");
+		test();
+		// 第一引数
+		void* ptr = nullptr;
+		initeval->getResult(0, ptr);
+		printf("value:%p\n", ptr);
+		// 第二引数
+		unsigned int index = 0;
+		initeval->getResult(1, index);
+		printf("value:%u\n", index);
+
+■設定した条件を全てクリアする
+  ResetFunctionLog();
+    設定した条件を全てクリアします。
+    本APIを実行しない場合は、プロセス終了時にクリアされます。
