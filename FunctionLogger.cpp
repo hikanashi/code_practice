@@ -46,6 +46,11 @@ void FunctionLogger::logout(
 	uint64_t line,
 	const char* log)
 {
+	if (0 == functions_.size())
+	{
+		return;
+	}
+
 	std::lock_guard<std::mutex> lock(mutex_);
 	std::string func(function);
 
@@ -63,7 +68,7 @@ FunctionLogEvalPtr FunctionLogger::addAPIIN(
 	const char* function,
 	const char* append_pattern)
 {
-	std::string pattern = "\\[API_IN\\]";
+	std::string pattern = "\\[API IN\\]";
 	if (append_pattern != nullptr)
 	{
 		pattern += append_pattern;
@@ -76,7 +81,7 @@ FunctionLogEvalPtr FunctionLogger::addAPIOUT(
 	const char* function,
 	const char* append_pattern)
 {
-	std::string pattern = "\\[API_OUT\\]";
+	std::string pattern = "\\[API OUT\\]";
 	if (append_pattern != nullptr)
 	{
 		pattern += append_pattern;
