@@ -28,6 +28,15 @@ size_t FunctionLogEval::getCount()
 	return count_;
 }
 
+template<> 
+bool FunctionLogEval::getResult(size_t idx, std::string& value)
+{
+	assert(idx < result_.size());
+
+	value = result_[idx];
+	return true;
+}
+
 const std::vector<std::string>& FunctionLogEval::getResultList()
 {
 	return result_;
@@ -55,13 +64,19 @@ bool FunctionLogEval::IsProcess( FunctionLog& log )
 
 void FunctionLogEval::Process( FunctionLog& log )
 {
-	std::lock_guard<std::mutex> lk(mtx_);
-	
 	count_++;
-	notify_ ++;
 	
+	notify();
+}
+
+
+void FunctionLogEval::notify()
+{
+	std::lock_guard<std::mutex> lk(mtx_);
+	notify_++;
 	cond_.notify_all();
 }
+
 
 void FunctionLogEval::wait()
 {

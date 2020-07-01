@@ -80,18 +80,13 @@ public:
 		}
 	}
 
-	template<> bool getResult(size_t idx, std::string& value)
-	{
-		assert(idx < result_.size());
-
-		value = result_[idx];
-		return true;
-	}
-
 	const std::vector<std::string>& getResultList();
 
 	virtual bool IsProcess( FunctionLog& log );
 	virtual void Process( FunctionLog& log );
+
+protected:
+	void  notify();
 
 private:
 	void operator =(const FunctionLogEval& src) {}
@@ -106,6 +101,9 @@ private:
 	std::mutex mtx_;
  	std::condition_variable cond_;
 };
+
+template<>
+bool FunctionLogEval::getResult(size_t idx, std::string& value);
 
 typedef std::shared_ptr<FunctionLogEval> FunctionLogEvalPtr;
 
