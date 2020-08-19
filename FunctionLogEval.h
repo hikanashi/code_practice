@@ -25,8 +25,7 @@ public:
 	virtual ~FunctionLogEval();
 
 	void setPattern(const char* pattern);
-	void wait(
-		FunctionLogEvalCallback func = nullptr);
+	void wait();
 
 	std::string getFunction();
 	size_t getCount();
@@ -86,8 +85,10 @@ public:
 	virtual bool IsProcess( FunctionLog& log );
 	virtual void Process( FunctionLog& log );
 
+	void setCallback(FunctionLogEvalCallback func);
+
 protected:
-	void  notify();
+	void  notify(bool& need_wait);
 	void  run_callback();
 	void  wait_callback();
 
@@ -101,11 +102,11 @@ private:
 	std::vector<std::string> result_;
 	size_t   count_;
 	size_t   notify_;
-	std::mutex mtx_;
- 	std::condition_variable cond_;
+	std::recursive_mutex mtx_;
+ 	std::condition_variable_any cond_;
 
-	std::mutex wait_mtx_;
-	std::condition_variable wait_cond_;
+	std::recursive_mutex wait_mtx_;
+	std::condition_variable_any wait_cond_;
 	size_t   wait_notify_;
 	FunctionLogEvalCallback check_function_;
 };

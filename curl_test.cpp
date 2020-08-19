@@ -425,12 +425,20 @@ int main(void)
 
 	std::thread th(StopServer, (void*)NULL);
 
-	FunctionLogEvalCallback chkfunc = [=]() { printf("logcount:%d\n", stopserverlog->getCount()); };
+	FunctionLogEvalCallback chkfunc = [=]() { 
+		printf("logcount:%d\n", stopserverlog->getCount()); 
 
-	stopserverlog->wait(chkfunc);
+		FunctionLogEvalCallback chkfunc2 = [=]() {
+			printf("logcount222:%d\n", stopserverlog->getCount());
+		};
 
+		stopserverlog->setCallback(chkfunc2);
+	};
+	
+	stopserverlog->setCallback(chkfunc);
+	stopserverlog->wait();
 	WAITMS(3 * 1000);
-	stopserverlog->wait(chkfunc);
+	stopserverlog->wait();
 
 
 	cm = curl_multi_init();
