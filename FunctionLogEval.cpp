@@ -10,6 +10,10 @@ FunctionLogEval::FunctionLogEval(const char* function)
 	, notify_(0)
 	, mtx_()
 	, cond_()
+	, wait_mtx_()
+	, wait_cond_()
+	, wait_notify_(0)
+	, check_function_()
 {
 }
 
@@ -67,6 +71,7 @@ void FunctionLogEval::Process( FunctionLog& log )
 	count_++;
 	
 	notify();
+	wait_callback();
 }
 
 
@@ -78,9 +83,43 @@ void FunctionLogEval::notify()
 }
 
 
-void FunctionLogEval::wait()
+void FunctionLogEval::wait(
+	FunctionLogEvalCallback func)
 {
 	std::unique_lock<std::mutex> lk(mtx_);
+	check_function_ = func;
+
 	cond_.wait(lk, [&]{ return ( notify_ > 0 ); });
 	notify_--;
+
+	run_callback();
+
+	check_function_ = nullptr;
+}
+
+void FunctionLogEval::wait_callback()
+{
+	if (check_function_ == nullptr)
+	{
+		return;
+	}
+
+	std::unique_lock<std::mutex> waitlk(wait_mtx_);
+	wait_cond_.wait(waitlk, [&] { return (wait_notify_ > 0); });
+	wait_notify_--;
+}
+
+void FunctionLogEval::run_callback()
+{
+	if (check_function_ == nullptr)
+	{
+		return;
+	}
+
+	std::lock_guard<std::mutex> waitlk(wait_mtx_);
+
+	check_function_();
+	wait_notify_++;
+	wait_cond_.notify_all();
+
 }

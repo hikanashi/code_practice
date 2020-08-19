@@ -273,9 +273,11 @@ static void* StopServer(void *p)
 	//eventfd_write(efd, 9);
 
 	WAITMS(3 * 1000);
-
+	LOGOUT("1-----------------\n");
 	LOGOUT("complete server");
+	LOGOUT("2-----------------\n");
 	LOGOUT("complete server");
+	LOGOUT("3-----------------\n");
 
 	//eventfd_write(efd, 10);
 
@@ -372,9 +374,13 @@ int main(void)
 	ResponseRuleGeneral* resp = new ResponseRuleGeneral(200, TESTBODY, strlen(TESTBODY));
 //	resp->setPath("/test.html");
 	resp->setCheckCallback(checktest);
+	
+	resp->appendRequestHeaderRule("host", "127.*");
+
 	acceptHandler.addResponse(ResponseRulePtr(resp));
 
 	resp = new ResponseRuleGeneral(404);
+	resp->appendRequestHeaderRule("abc", "123");
 	auto checkfnc = [](HttpRequest& req, const uint8_t* unzip_data, size_t unzip_size)
 	{ 
 		LOGOUT("host:%s\n", req.host.c_str());
@@ -418,10 +424,13 @@ int main(void)
 
 
 	std::thread th(StopServer, (void*)NULL);
-	stopserverlog->wait();
+
+	FunctionLogEvalCallback chkfunc = [=]() { printf("logcount:%d\n", stopserverlog->getCount()); };
+
+	stopserverlog->wait(chkfunc);
 
 	WAITMS(3 * 1000);
-	stopserverlog->wait();
+	stopserverlog->wait(chkfunc);
 
 
 	cm = curl_multi_init();

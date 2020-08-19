@@ -1,8 +1,6 @@
 #ifndef FUNCTIONLOGEVAL_H_
 #define FUNCTIONLOGEVAL_H_
 
-
-
 class FunctionLog;
 #include <string>
 #include <sstream>
@@ -14,9 +12,11 @@ class FunctionLog;
 #include <vector>
 #include <condition_variable>
 #include <mutex>
+#include <functional>
 
 #include <cassert>
 
+using FunctionLogEvalCallback = std::function<void()>;
 
 class FunctionLogEval
 {
@@ -25,7 +25,8 @@ public:
 	virtual ~FunctionLogEval();
 
 	void setPattern(const char* pattern);
-	void wait();
+	void wait(
+		FunctionLogEvalCallback func = nullptr);
 
 	std::string getFunction();
 	size_t getCount();
@@ -87,6 +88,8 @@ public:
 
 protected:
 	void  notify();
+	void  run_callback();
+	void  wait_callback();
 
 private:
 	void operator =(const FunctionLogEval& src) {}
@@ -100,6 +103,11 @@ private:
 	size_t   notify_;
 	std::mutex mtx_;
  	std::condition_variable cond_;
+
+	std::mutex wait_mtx_;
+	std::condition_variable wait_cond_;
+	size_t   wait_notify_;
+	FunctionLogEvalCallback check_function_;
 };
 
 template<>
