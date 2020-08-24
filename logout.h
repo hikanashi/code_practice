@@ -1,6 +1,6 @@
 #pragma once
 
-#include "FunctionLogger.h"
+#include "loggerwrapper.h"
 
 #define LOGOUT(...)								\
 	do {										\

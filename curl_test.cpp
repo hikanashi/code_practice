@@ -16,6 +16,7 @@
 #include "ResponseRuleGeneral.h"
 
 #include "logout.h"
+#include "FunctionLogger.h"
 #include <thread>
 
 
@@ -427,6 +428,7 @@ int main(void)
 
 	FunctionLogEvalCallback chkfunc = [=]() { 
 		printf("logcount:%d\n", stopserverlog->getCount()); 
+		StopServer(NULL);
 
 		FunctionLogEvalCallback chkfunc2 = [=]() {
 			printf("logcount222:%d\n", stopserverlog->getCount());

@@ -30,7 +30,8 @@ public:
 	std::string getFunction();
 	size_t getCount();
 
-	template<typename T> bool getResult(size_t idx, T& value)
+	template<typename T> 
+	bool getResult(size_t idx, T& value)
 	{
 		typedef std::numeric_limits<T> numlimit;
 
@@ -58,7 +59,8 @@ public:
 		}
 	}
 
-	template<class T> bool getResult(size_t idx, T*& value)
+	template<class T> 
+	bool getResult(size_t idx, T*& value)
 	{
 		assert(idx < result_.size());
 
@@ -105,6 +107,7 @@ private:
 	std::recursive_mutex mtx_;
  	std::condition_variable_any cond_;
 
+	bool running_callback;
 	std::recursive_mutex wait_mtx_;
 	std::condition_variable_any wait_cond_;
 	size_t   wait_notify_;

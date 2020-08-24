@@ -10,6 +10,7 @@ FunctionLogEval::FunctionLogEval(const char* function)
 	, notify_(0)
 	, mtx_()
 	, cond_()
+	, running_callback(false)
 	, wait_mtx_()
 	, wait_cond_()
 	, wait_notify_(0)
@@ -56,6 +57,14 @@ void FunctionLogEval::setPattern(const char* pattern)
 
 bool FunctionLogEval::IsProcess( FunctionLog& log )
 { 
+	{
+		std::unique_lock<std::recursive_mutex> waitlk(wait_mtx_);
+		if (running_callback == true)
+		{
+			return false;
+		}
+	}
+
 	if (pattern_.length() == 0)
 	{
 		return true;
@@ -128,9 +137,13 @@ void FunctionLogEval::run_callback()
 
 	std::lock_guard<std::recursive_mutex> waitlk(wait_mtx_);
 	
+	running_callback = true;
+
 	FunctionLogEvalCallback func = check_function_;
 	check_function_ = nullptr;
 	func();
+
+	running_callback = false;
 
 	wait_notify_++;
 	wait_cond_.notify_all();

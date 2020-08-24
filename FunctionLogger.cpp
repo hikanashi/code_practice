@@ -1,35 +1,7 @@
 #include "FunctionLogger.h"
-#include <cstdarg>
+
 
 FunctionLogger FunctionLogger::logger_;
-
-
-void LogoutFunction(
-	const char* function,
-	uint64_t line,
-	const char* format,
-	...)
-{
-	char tmpbuf[10240] = { 0 };
-
-	va_list args;
-
-	va_start(args, format);
-	vsnprintf(tmpbuf, sizeof(tmpbuf) - 1, format, args);
-	va_end(args);
-
-	FunctionLogger::GetLogger().logout(function, line, tmpbuf);
-
-	return;
-}
-
-void ResetFunctionLog()
-{
-	FunctionLogger::GetLogger().reset();
-	return;
-}
-
-
 
 FunctionLogger::FunctionLogger()
 	:  functions_()
@@ -51,14 +23,20 @@ void FunctionLogger::logout(
 		return;
 	}
 
-	std::lock_guard<std::mutex> lock(mutex_);
-	std::string func(function);
+	FunctionLogListPtr functionlog;
 
-	FunctionLogListPtr& functionlog = functions_[func];
-
-	if (!functionlog)
 	{
-		functionlog = FunctionLogListPtr(new FunctionLogList(function));
+		std::lock_guard<std::recursive_mutex > lock(mutex_);
+		std::string func(function);
+
+		FunctionLogListPtr& fnclog = functions_[func];
+
+		if (!fnclog)
+		{
+			fnclog = FunctionLogListPtr(new FunctionLogList(function));
+		}
+
+		functionlog = fnclog;
 	}
 
 	functionlog->logout(function, line, log);
@@ -120,7 +98,7 @@ void FunctionLogger::addEval(
 	
 	std::string func = eval->getFunction();
 	
-	std::lock_guard<std::mutex> lock(mutex_);	
+	std::lock_guard<std::recursive_mutex> lock(mutex_);
 	FunctionLogListPtr& functionlog = functions_[func];
 
 	if (!functionlog)
@@ -142,7 +120,7 @@ void FunctionLogger::delEval(
 	
 	std::string func = eval->getFunction();
 	
-	std::lock_guard<std::mutex> lock(mutex_);	
+	std::lock_guard<std::recursive_mutex> lock(mutex_);
 
 	FunctionLogListPtr& functionlog = functions_[func];
 
