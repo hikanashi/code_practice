@@ -51,7 +51,7 @@ private:
 
 private:
 	std::map <std::string, FunctionLogListPtr> functions_;
-	std::recursive_mutex	mutex_;
+	std::recursive_mutex	functions_mutex_;
 
 	static FunctionLogger logger_;
 };

@@ -30,27 +30,39 @@ public:
 	std::string getFunction();
 	size_t getCount();
 
-	template<typename T> 
+	template<typename T>
+	void getErrorValue(T& value)
+	{
+		typedef std::numeric_limits<T> numlimit;
+		if (numlimit::is_signed)
+		{
+			value = (numlimit::min)();
+		}
+		else
+		{
+			value = (numlimit::max)();
+		}
+	}
+
+	template<typename T>
 	bool getResult(size_t idx, T& value)
 	{
 		typedef std::numeric_limits<T> numlimit;
+		
+		std::string result;
+		bool exist_result = getResult(idx, result);
+		if( exist_result == false )
+		{
+			getErrorValue(value);
+			return false;
+		}
 
-		assert(idx < result_.size() );
-
-		std::istringstream ss(result_[idx]);
+		std::istringstream ss(result);
 		ss >> value;
 
 		if (ss.fail())
 		{
-			if (numlimit::is_signed)
-			{
-				value = (numlimit::min)();
-			}
-			else
-			{
-				value = (numlimit::max)();
-			}
-
+			getErrorValue(value);
 			return false;
 		}
 		else
@@ -59,20 +71,28 @@ public:
 		}
 	}
 
-	template<class T> 
+	template<typename T> 
 	bool getResult(size_t idx, T*& value)
 	{
-		assert(idx < result_.size());
+		unsigned long ret = 0;
 
-		long ret = 0;
+		std::string result;
+		bool exist_result = getResult(idx, result);
+		if (exist_result == false)
+		{
+			getErrorValue(ret);
+			value = reinterpret_cast<T*>(ret);
+			return false;
+		}
+
 		std::stringstream ss;
-		ss << std::setfill('0') << std::hex << result_[idx];
+		ss << std::setfill('0') << std::hex << result;
 		ss >> ret;
 		value = reinterpret_cast<T*>(ret);
 
 		if (ss.fail())
 		{
-			ret = (std::numeric_limits<long>::max)();
+			getErrorValue(ret);
 			value = reinterpret_cast<T*>(ret);
 			return false;
 		}
@@ -82,7 +102,7 @@ public:
 		}
 	}
 
-	const std::vector<std::string>& getResultList();
+	const std::vector<std::string> getResultList();
 
 	virtual bool IsProcess( FunctionLog& log );
 	virtual void Process( FunctionLog& log );
@@ -90,7 +110,7 @@ public:
 	void setCallback(FunctionLogEvalCallback func);
 
 protected:
-	void  notify(bool& need_wait);
+	void  notify();
 	void  run_callback();
 	void  wait_callback();
 
@@ -101,21 +121,31 @@ private:
 private:
 	std::string function_;
 	std::string pattern_;
+
 	std::vector<std::string> result_;
 	size_t   count_;
-	size_t   notify_;
-	std::recursive_mutex mtx_;
- 	std::condition_variable_any cond_;
+	std::recursive_mutex count_mtx_;
 
-	bool running_callback;
-	std::recursive_mutex wait_mtx_;
-	std::condition_variable_any wait_cond_;
-	size_t   wait_notify_;
-	FunctionLogEvalCallback check_function_;
+
+	size_t   notify_;
+	std::recursive_mutex notify_mtx_;
+ 	std::condition_variable_any notify_cond_;
+
+
+	bool running_callback_;
+	std::recursive_mutex running_mtx_;
+
+	std::recursive_mutex callback_notify_mtx_;
+	std::condition_variable_any callback_notify_cond_;
+	size_t   callback_notify_;
+
+
+	FunctionLogEvalCallback callback_function_;
+	std::recursive_mutex callback_function_mtx_;
 };
 
 template<>
-bool FunctionLogEval::getResult(size_t idx, std::string& value);
+bool FunctionLogEval::getResult<std::string>(size_t idx, std::string& value);
 
 typedef std::shared_ptr<FunctionLogEval> FunctionLogEvalPtr;
 

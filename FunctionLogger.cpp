@@ -5,7 +5,8 @@ FunctionLogger FunctionLogger::logger_;
 
 FunctionLogger::FunctionLogger()
 	:  functions_()
-	, mutex_()
+	, functions_mutex_()
+
 {
 }
 
@@ -18,7 +19,14 @@ void FunctionLogger::logout(
 	uint64_t line,
 	const char* log)
 {
-	if (0 == functions_.size())
+	size_t count_func = 0;
+
+	{
+		std::lock_guard<std::recursive_mutex > lock(functions_mutex_);
+		count_func = functions_.size();
+	}
+
+	if (0 == count_func)
 	{
 		return;
 	}
@@ -26,7 +34,7 @@ void FunctionLogger::logout(
 	FunctionLogListPtr functionlog;
 
 	{
-		std::lock_guard<std::recursive_mutex > lock(mutex_);
+		std::lock_guard<std::recursive_mutex > lock(functions_mutex_);
 		std::string func(function);
 
 		FunctionLogListPtr& fnclog = functions_[func];
@@ -40,6 +48,7 @@ void FunctionLogger::logout(
 	}
 
 	functionlog->logout(function, line, log);
+
 }
 
 FunctionLogEvalPtr FunctionLogger::addAPIIN(
@@ -98,7 +107,7 @@ void FunctionLogger::addEval(
 	
 	std::string func = eval->getFunction();
 	
-	std::lock_guard<std::recursive_mutex> lock(mutex_);
+	std::lock_guard<std::recursive_mutex> lock(functions_mutex_);
 	FunctionLogListPtr& functionlog = functions_[func];
 
 	if (!functionlog)
@@ -120,7 +129,7 @@ void FunctionLogger::delEval(
 	
 	std::string func = eval->getFunction();
 	
-	std::lock_guard<std::recursive_mutex> lock(mutex_);
+	std::lock_guard<std::recursive_mutex> lock(functions_mutex_);
 
 	FunctionLogListPtr& functionlog = functions_[func];
 
@@ -134,5 +143,6 @@ void FunctionLogger::delEval(
 
 void FunctionLogger::reset()
 {
+	std::lock_guard<std::recursive_mutex> lock(functions_mutex_);
 	return functions_.clear();
 }

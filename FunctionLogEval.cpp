@@ -7,14 +7,17 @@ FunctionLogEval::FunctionLogEval(const char* function)
 	, pattern_()
 	, result_()
 	, count_(0)
+	, count_mtx_()
 	, notify_(0)
-	, mtx_()
-	, cond_()
-	, running_callback(false)
-	, wait_mtx_()
-	, wait_cond_()
-	, wait_notify_(0)
-	, check_function_()
+	, notify_mtx_()
+	, notify_cond_()
+	, running_callback_(false)
+	, running_mtx_()
+	, callback_notify_mtx_()
+	, callback_notify_cond_()
+	, callback_notify_(0)
+	, callback_function_()
+	, callback_function_mtx_()
 {
 }
 
@@ -30,20 +33,28 @@ std::string FunctionLogEval::getFunction()
 
 size_t FunctionLogEval::getCount()
 {
+	std::lock_guard<std::recursive_mutex> lk(count_mtx_);
 	return count_;
 }
 
 template<> 
-bool FunctionLogEval::getResult(size_t idx, std::string& value)
+bool FunctionLogEval::getResult<std::string>(size_t idx, std::string& value)
 {
-	assert(idx < result_.size());
+	std::lock_guard<std::recursive_mutex> lk(count_mtx_);
+
+	if (idx >= result_.size())
+	{
+		value.clear();
+		return false;
+	}
 
 	value = result_[idx];
 	return true;
 }
 
-const std::vector<std::string>& FunctionLogEval::getResultList()
+const std::vector<std::string> FunctionLogEval::getResultList()
 {
+	std::lock_guard<std::recursive_mutex> lk(count_mtx_);
 	return result_;
 }
 
@@ -58,8 +69,8 @@ void FunctionLogEval::setPattern(const char* pattern)
 bool FunctionLogEval::IsProcess( FunctionLog& log )
 { 
 	{
-		std::unique_lock<std::recursive_mutex> waitlk(wait_mtx_);
-		if (running_callback == true)
+		std::lock_guard<std::recursive_mutex> runlk(running_mtx_);
+		if (running_callback_ != false)
 		{
 			return false;
 		}
@@ -70,82 +81,105 @@ bool FunctionLogEval::IsProcess( FunctionLog& log )
 		return true;
 	}
 
-	bool match =  log.parseLog(pattern_.c_str(), result_);
+	std::vector<std::string> result;
+	bool match =  log.parseLog(pattern_.c_str(), result);
+
+	if(match != false)
+	{
+		std::lock_guard<std::recursive_mutex> lk(count_mtx_);
+		result_ = result;
+	}
 	
 	return match;
 }
 
 void FunctionLogEval::Process( FunctionLog& log )
 {
-	count_++;
-	
-	bool need_wait = false;
-
-	notify(need_wait);
-	
-	if( need_wait != false)
 	{
-		wait_callback();
+		std::lock_guard<std::recursive_mutex> lk(count_mtx_);
+		count_++;
 	}
+
+	notify();
+	
+	wait_callback();
+
 }
 
 
-void FunctionLogEval::notify(bool& need_wait)
+void FunctionLogEval::notify()
 {
-	std::lock_guard<std::recursive_mutex> lk(mtx_);
-
-
-	if (check_function_ != nullptr)
 	{
-		need_wait = true;
+		std::lock_guard<std::recursive_mutex> lk(notify_mtx_);
+		notify_++;
+		notify_cond_.notify_all();
 	}
-
-	notify_++;
-	cond_.notify_all();
 }
 
 
 void FunctionLogEval::wait()
 {
-	std::unique_lock<std::recursive_mutex> lk(mtx_);
-	cond_.wait(lk, [&]{ return ( notify_ > 0 ); });
-	notify_--;
+	{
+		std::unique_lock<std::recursive_mutex> lk(notify_mtx_);
+		notify_cond_.wait(lk, [&] { return (notify_ > 0); });
+		notify_--;
+	}
 
 	run_callback();
 }
 
 void FunctionLogEval::setCallback(FunctionLogEvalCallback func)
 {
-	std::unique_lock<std::recursive_mutex> lk(mtx_);
-	check_function_ = func;
+	std::lock_guard<std::recursive_mutex> lk(callback_function_mtx_);
+	callback_function_ = func;
 }
 
 void FunctionLogEval::wait_callback()
 {
-	std::unique_lock<std::recursive_mutex> waitlk(wait_mtx_);
-	wait_cond_.wait(waitlk, [&] { return (wait_notify_ > 0); });
-	wait_notify_--;
+	{
+		std::lock_guard<std::recursive_mutex> lk(callback_function_mtx_);
+		if (!callback_function_)
+		{
+			return;
+		}
+	}
+
+	{
+		std::unique_lock<std::recursive_mutex> waitlk(callback_notify_mtx_);
+		callback_notify_cond_.wait(waitlk, [&] { return (callback_notify_ > 0); });
+		callback_notify_--;
+	}
 }
 
 void FunctionLogEval::run_callback()
 {
-	std::unique_lock<std::recursive_mutex> lk(mtx_);
-	if (check_function_ == nullptr)
 	{
-		return;
+		std::lock_guard<std::recursive_mutex> runlk(running_mtx_);
+		running_callback_ = true;
 	}
 
-	std::lock_guard<std::recursive_mutex> waitlk(wait_mtx_);
-	
-	running_callback = true;
+	{
+		FunctionLogEvalCallback func;
+		{
+			std::lock_guard<std::recursive_mutex> lk(callback_function_mtx_);
+			func = callback_function_;
+			callback_function_ = nullptr;
+		}
 
-	FunctionLogEvalCallback func = check_function_;
-	check_function_ = nullptr;
-	func();
+		if (func)
+		{
+			func();
+		}
+	}
 
-	running_callback = false;
+	{
+		std::lock_guard<std::recursive_mutex> runlk(running_mtx_);
+		running_callback_ = false;
+	}
 
-	wait_notify_++;
-	wait_cond_.notify_all();
-
+	{
+		std::lock_guard<std::recursive_mutex> waitlk(callback_notify_mtx_);
+		callback_notify_++;
+		callback_notify_cond_.notify_all();
+	}
 }
