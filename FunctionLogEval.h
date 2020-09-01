@@ -14,9 +14,11 @@ class FunctionLog;
 #include <mutex>
 #include <functional>
 
-#include <cassert>
+#include <cstdint>
 
+class FunctionLogEval;
 using FunctionLogEvalCallback = std::function<void()>;
+using FunctionTimeoutCallback = std::function<void(FunctionLogEval&)>;
 
 class FunctionLogEval
 {
@@ -28,6 +30,7 @@ public:
 	void wait();
 
 	std::string getFunction();
+	std::string getPattern();
 	size_t getCount();
 
 	template<typename T>
@@ -109,6 +112,14 @@ public:
 
 	void setCallback(FunctionLogEvalCallback func);
 
+
+	void setWaitLogTimeoutCallback(
+		FunctionTimeoutCallback func);
+
+	void setWaitLogTimeout(
+		int second);
+
+
 protected:
 	void  notify();
 	void  run_callback();
@@ -127,7 +138,7 @@ private:
 	std::recursive_mutex count_mtx_;
 
 
-	size_t   notify_;
+	int64_t   notify_;
 	std::recursive_mutex notify_mtx_;
  	std::condition_variable_any notify_cond_;
 
@@ -137,11 +148,15 @@ private:
 
 	std::recursive_mutex callback_notify_mtx_;
 	std::condition_variable_any callback_notify_cond_;
-	size_t   callback_notify_;
+	int64_t   callback_notify_;
 
 
 	FunctionLogEvalCallback callback_function_;
 	std::recursive_mutex callback_function_mtx_;
+
+	int					    waitlog_timeout_sec_;
+	FunctionTimeoutCallback waitlog_timeout_callback_;
+	std::recursive_mutex	waitlog_timeout_mutex_;
 };
 
 template<>

@@ -18,6 +18,9 @@ FunctionLogEval::FunctionLogEval(const char* function)
 	, callback_notify_(0)
 	, callback_function_()
 	, callback_function_mtx_()
+	, waitlog_timeout_sec_(0)
+	, waitlog_timeout_callback_()
+	, waitlog_timeout_mutex_()
 {
 }
 
@@ -29,6 +32,11 @@ FunctionLogEval::~FunctionLogEval()
 std::string FunctionLogEval::getFunction()
 {
 	return function_;
+}
+
+std::string FunctionLogEval::getPattern()
+{
+	return pattern_;
 }
 
 size_t FunctionLogEval::getCount()
@@ -119,11 +127,46 @@ void FunctionLogEval::notify()
 
 void FunctionLogEval::wait()
 {
+	bool isTimeout = false;
+
 	{
+		int timeout_sec = 0;
+		FunctionTimeoutCallback timeoutfunc;
+
+		{
+			std::lock_guard<std::recursive_mutex> lock(waitlog_timeout_mutex_);
+			timeout_sec = waitlog_timeout_sec_;
+			timeoutfunc = waitlog_timeout_callback_;
+		}
+
 		std::unique_lock<std::recursive_mutex> lk(notify_mtx_);
-		notify_cond_.wait(lk, [&] { return (notify_ > 0); });
+		if (timeout_sec > 0)
+		{
+			const auto timeout = std::chrono::seconds(timeout_sec);
+			notify_cond_.wait_for(lk, timeout, [&] { return (notify_ > 0); });
+			// no notify is timeout
+			if (notify_ <= 0)
+			{
+				isTimeout = true;
+				if (timeoutfunc)
+				{
+					timeoutfunc(*this);
+				}
+			}
+		}
+		else
+		{
+			notify_cond_.wait(lk, [&] { return (notify_ > 0); });
+		}
 		notify_--;
 	}
+
+	if(isTimeout)
+	{
+		std::lock_guard<std::recursive_mutex> lk(callback_function_mtx_);
+		callback_function_ = nullptr;
+	}
+
 
 	run_callback();
 }
@@ -182,4 +225,18 @@ void FunctionLogEval::run_callback()
 		callback_notify_++;
 		callback_notify_cond_.notify_all();
 	}
+}
+
+void FunctionLogEval::setWaitLogTimeoutCallback(
+	FunctionTimeoutCallback func)
+{
+	std::lock_guard<std::recursive_mutex> lock(waitlog_timeout_mutex_);
+	waitlog_timeout_callback_ = func;
+}
+
+void FunctionLogEval::setWaitLogTimeout(
+	int second)
+{
+	std::lock_guard<std::recursive_mutex> lock(waitlog_timeout_mutex_);
+	waitlog_timeout_sec_ = second;
 }

@@ -6,6 +6,7 @@
 #include <map>
 #include <mutex>
 #include "FunctionLogList.h"
+#include "FunctionLogEval.h"
 
 class FunctionLogger
 {
@@ -40,6 +41,11 @@ public:
 
 	void reset();
 
+	void setDefaultWaitLogTimeoutCallback(
+		FunctionTimeoutCallback func);
+
+	void setDefaultWaitLogTimeout(
+		int second);
 
 protected:
 	FunctionLogger();
@@ -52,6 +58,10 @@ private:
 private:
 	std::map <std::string, FunctionLogListPtr> functions_;
 	std::recursive_mutex	functions_mutex_;
+
+	int					    default_waitlog_timeout_sec_;
+	FunctionTimeoutCallback default_waitlog_timeout_callback_;
+	std::recursive_mutex	waitlog_timeout_mutex_;
 
 	static FunctionLogger logger_;
 };

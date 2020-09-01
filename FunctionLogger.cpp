@@ -6,7 +6,9 @@ FunctionLogger FunctionLogger::logger_;
 FunctionLogger::FunctionLogger()
 	:  functions_()
 	, functions_mutex_()
-
+	, default_waitlog_timeout_sec_(0)
+	, default_waitlog_timeout_callback_()
+	, waitlog_timeout_mutex_()
 {
 }
 
@@ -104,6 +106,11 @@ void FunctionLogger::addEval(
 		return;
 	}
 
+	{
+		std::lock_guard<std::recursive_mutex> lock(waitlog_timeout_mutex_);
+		eval->setWaitLogTimeoutCallback(default_waitlog_timeout_callback_);
+		eval->setWaitLogTimeout(default_waitlog_timeout_sec_);
+	}
 	
 	std::string func = eval->getFunction();
 	
@@ -145,4 +152,18 @@ void FunctionLogger::reset()
 {
 	std::lock_guard<std::recursive_mutex> lock(functions_mutex_);
 	return functions_.clear();
+}
+
+void FunctionLogger::setDefaultWaitLogTimeoutCallback(
+	FunctionTimeoutCallback func)
+{
+	std::lock_guard<std::recursive_mutex> lock(waitlog_timeout_mutex_);
+	default_waitlog_timeout_callback_ = func;
+}
+
+void FunctionLogger::setDefaultWaitLogTimeout(
+	int second)
+{
+	std::lock_guard<std::recursive_mutex> lock(waitlog_timeout_mutex_);
+	default_waitlog_timeout_sec_ = second;
 }

@@ -208,7 +208,7 @@ struct curl_slist * connect_to = NULL;
 
 static void init(CURLM *cm, int i)
 {
-	LOGOUT_APIIN("cm=%p i=%d", cm, i);
+	LOGOUT_APIIN("cm=%p i=%d", cm, i+5);
 	CURL *eh = curl_easy_init();
 
 	HttpResp* res = new HttpResp();
@@ -316,9 +316,22 @@ int main(void)
 	LOGOUT_APIIN("");
 
 
+	FunctionTimeoutCallback timeoutfunc = [](FunctionLogEval& eval)
+	{
+		LOGOUT("timeikout function:%s pattern:%s count:%d\n", 
+				eval.getFunction().c_str(),
+				eval.getPattern().c_str(),
+				eval.getCount() );
+
+	};
+
+
+	FunctionLogger::GetLogger().setDefaultWaitLogTimeout(3*60);
+	FunctionLogger::GetLogger().setDefaultWaitLogTimeoutCallback(timeoutfunc);
+
 	FunctionLogEvalPtr initeval = FunctionLogger::addAPIIN("init", ".*cm=(.*) i=(.+)");
 
-	FunctionLogEvalPtr stopserverlog = FunctionLogger::addPattern("StopServer", "complete server");
+
 
 	FunctionLogEvalPtr mytracelog = FunctionLogger::addAPIIN("my_trace");
 	
@@ -423,25 +436,41 @@ int main(void)
 	int still_running = 0, i = 0, msgs_left = 0;
 	int http_status_code;
 
-
 	std::thread th(StopServer, (void*)NULL);
 
-	FunctionLogEvalCallback chkfunc = [=]() { 
-		printf("logcount:%d\n", stopserverlog->getCount()); 
-		StopServer(NULL);
+	{
 
-		FunctionLogEvalCallback chkfunc2 = [=]() {
-			printf("logcount222:%d\n", stopserverlog->getCount());
+		FunctionLogEvalPtr stopserverlog = FunctionLogger::addPattern("StopServer", "complete server");
+
+		FunctionLogEvalCallback chkfunc = [=]() {
+			printf("################logcount:%d\n", stopserverlog->getCount());
+
+			//ResetFunctionLog();
+
+
+
+
+			FunctionLogEvalCallback chkfunc2 = [=]() {
+				printf("logcount222:%d\n", stopserverlog->getCount());
+			};
+
+			stopserverlog->setWaitLogTimeout(1);
+
+			stopserverlog->setCallback(chkfunc2);
+
+			//StopServer(NULL);
+
+
 		};
 
-		stopserverlog->setCallback(chkfunc2);
-	};
-	
-	stopserverlog->setCallback(chkfunc);
-	stopserverlog->wait();
-	WAITMS(3 * 1000);
-	stopserverlog->wait();
+		stopserverlog->setCallback(chkfunc);
 
+		
+
+		stopserverlog->wait();
+		WAITMS(3 * 1000);
+		stopserverlog->wait();
+	}
 
 	cm = curl_multi_init();
 
