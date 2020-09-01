@@ -107,8 +107,12 @@ public:
 
 	const std::vector<std::string> getResultList();
 
-	virtual bool IsProcess( FunctionLog& log );
-	virtual void Process( FunctionLog& log );
+	virtual bool IsProcess( 
+					FunctionLog& log, 
+					std::vector<std::string>& result);
+	virtual void Process( 
+					FunctionLog& log,
+					std::vector<std::string>& result);
 
 	void setCallback(FunctionLogEvalCallback func);
 

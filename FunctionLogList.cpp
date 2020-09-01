@@ -32,9 +32,10 @@ void FunctionLogList::logout(
 	{
 		if(eval)
 		{
-			if( eval->IsProcess(functionlog) != false )
+			std::vector<std::string> result;
+			if( eval->IsProcess(functionlog, result) != false )
 			{
-				eval->Process(functionlog);
+				eval->Process(functionlog, result);
 			}
 		}
 	}

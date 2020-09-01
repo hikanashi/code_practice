@@ -74,7 +74,7 @@ void FunctionLogEval::setPattern(const char* pattern)
 	}
 }
 
-bool FunctionLogEval::IsProcess( FunctionLog& log )
+bool FunctionLogEval::IsProcess( FunctionLog& log, std::vector<std::string>& result)
 { 
 	{
 		std::lock_guard<std::recursive_mutex> runlk(running_mtx_);
@@ -89,23 +89,17 @@ bool FunctionLogEval::IsProcess( FunctionLog& log )
 		return true;
 	}
 
-	std::vector<std::string> result;
 	bool match =  log.parseLog(pattern_.c_str(), result);
-
-	if(match != false)
-	{
-		std::lock_guard<std::recursive_mutex> lk(count_mtx_);
-		result_ = result;
-	}
 	
 	return match;
 }
 
-void FunctionLogEval::Process( FunctionLog& log )
+void FunctionLogEval::Process( FunctionLog& log, std::vector<std::string>& result)
 {
 	{
 		std::lock_guard<std::recursive_mutex> lk(count_mtx_);
 		count_++;
+		result_ = result;
 	}
 
 	notify();
