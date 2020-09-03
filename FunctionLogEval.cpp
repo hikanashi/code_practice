@@ -152,7 +152,11 @@ void FunctionLogEval::wait()
 		{
 			notify_cond_.wait(lk, [&] { return (notify_ > 0); });
 		}
-		notify_--;
+
+		if (isTimeout == false)
+		{
+			notify_--;
+		}
 	}
 
 	if(isTimeout)
