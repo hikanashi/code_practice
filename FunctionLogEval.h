@@ -19,6 +19,7 @@ class FunctionLog;
 class FunctionLogEval;
 using FunctionLogEvalCallback = std::function<void()>;
 using FunctionTimeoutCallback = std::function<void(FunctionLogEval&)>;
+using FunctionFormatCallback = std::function<void(std::stringstream&)>;
 
 class FunctionLogEval
 {
@@ -49,54 +50,62 @@ public:
 
 	template<typename T>
 	bool getResult(size_t idx, T& value)
+	{		
+		return getResultByFormat(idx, value, std::dec);
+	}
+
+	template<typename T>
+	bool getResultHex(size_t idx, T& value)
 	{
-		typedef std::numeric_limits<T> numlimit;
-		
-		std::string result;
-		bool exist_result = getResult(idx, result);
-		if( exist_result == false )
+		FunctionFormatCallback settingformat = [](std::stringstream& sstream)
 		{
-			getErrorValue(value);
-			return false;
-		}
+			sstream << std::setfill('0') << std::hex;
 
-		std::istringstream ss(result);
-		ss >> value;
+		};
 
-		if (ss.fail())
-		{
-			getErrorValue(value);
-			return false;
-		}
-		else
-		{
-			return true;
-		}
+		return getResultByFormat(idx, value, settingformat);
 	}
 
 	template<typename T> 
 	bool getResult(size_t idx, T*& value)
 	{
-		unsigned long ret = 0;
+		unsigned long retValue = 0;
+		bool retResult = false;
+		FunctionFormatCallback settingformat = [](std::stringstream& sstream)
+		{
+			sstream << std::setfill('0') << std::hex;
 
+		};
+
+		retResult = getResultByFormat(idx, retValue, settingformat);
+
+		value = reinterpret_cast<T*>(retValue);
+		return retResult;
+	}
+
+	template<typename T>
+	bool getResultByFormat(size_t idx, T& value, FunctionFormatCallback settingstream = nullptr)
+	{
 		std::string result;
 		bool exist_result = getResult(idx, result);
 		if (exist_result == false)
 		{
-			getErrorValue(ret);
-			value = reinterpret_cast<T*>(ret);
+			getErrorValue(value);
 			return false;
 		}
 
 		std::stringstream ss;
-		ss << std::setfill('0') << std::hex << result;
-		ss >> ret;
-		value = reinterpret_cast<T*>(ret);
+		if (settingstream)
+		{
+			settingstream(ss);
+		}
+
+		ss << result;
+		ss >> value;
 
 		if (ss.fail())
 		{
-			getErrorValue(ret);
-			value = reinterpret_cast<T*>(ret);
+			getErrorValue(value);
 			return false;
 		}
 		else
