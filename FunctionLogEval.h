@@ -51,7 +51,7 @@ public:
 	template<typename T>
 	bool getResult(size_t idx, T& value)
 	{		
-		return getResultByFormat(idx, value, std::dec);
+		return getResultByFormat(idx, value);
 	}
 
 	template<typename T>
