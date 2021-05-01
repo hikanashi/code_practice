@@ -16,6 +16,7 @@
 #include "ResponseRuleGeneral.h"
 
 #include "logout.h"
+#include "FunctionLogger.h"
 #include <thread>
 
 
@@ -207,7 +208,7 @@ struct curl_slist * connect_to = NULL;
 
 static void init(CURLM *cm, int i)
 {
-	LOGOUT_APIIN("cm=%p i=%d", cm, i);
+	LOGOUT_APIIN("cm=%p i=%x", cm, i+25);
 	CURL *eh = curl_easy_init();
 
 	HttpResp* res = new HttpResp();
@@ -273,9 +274,14 @@ static void* StopServer(void *p)
 	//eventfd_write(efd, 9);
 
 	WAITMS(3 * 1000);
-
+	LOGOUT("1-----------------\n");
+	WAITMS(1.5 * 1000);
 	LOGOUT("complete server");
+	LOGOUT("2-----------------\n");
+	WAITMS(1.5 * 1000);
 	LOGOUT("complete server");
+	WAITMS(1.5 * 1000);
+	LOGOUT("3-----------------\n");
 
 	//eventfd_write(efd, 10);
 
@@ -313,9 +319,22 @@ int main(void)
 	LOGOUT_APIIN("");
 
 
+	FunctionTimeoutCallback timeoutfunc = [](FunctionLogEval& eval)
+	{
+		LOGOUT("\033[31m TIMEOUT \033[0m function:%s pattern:%s count:%d\n", 
+				eval.getFunction().c_str(),
+				eval.getPattern().c_str(),
+				eval.getCount() );
+
+	};
+
+
+	FunctionLogger::GetLogger().setDefaultWaitLogTimeout(3 * 60);
+	FunctionLogger::GetLogger().setDefaultWaitLogTimeoutCallback(timeoutfunc);
+
 	FunctionLogEvalPtr initeval = FunctionLogger::addAPIIN("init", ".*cm=(.*) i=(.+)");
 
-	FunctionLogEvalPtr stopserverlog = FunctionLogger::addPattern("StopServer", "complete server");
+
 
 	FunctionLogEvalPtr mytracelog = FunctionLogger::addAPIIN("my_trace");
 	
@@ -352,7 +371,7 @@ int main(void)
 	const char* confenv = getenv("OPENSSL_CONF");
 	LOGOUT("### get OPENSSL_CONF=%s\n", confenv ? confenv : "null");
 
-
+	
 	SettingConnection setting;
 	setting.exit_time.tv_sec = 10;
 	setting.enable_ocsp_stapling = true;
@@ -362,7 +381,7 @@ int main(void)
 //	setting.private_key = getcwd(NULL, 1024);
 //	setting.private_key += "\\ms_server_privatekey.pem";
 
-	ServerAcceptHandler acceptHandler(setting);
+	std::shared_ptr<ServerAcceptHandler>  acceptHandler = std::make_shared<ServerAcceptHandler>(setting);
 
 	// set enviroment
 //	HTTP_PROXY = http://localhost:23456
@@ -372,9 +391,14 @@ int main(void)
 	ResponseRuleGeneral* resp = new ResponseRuleGeneral(200, TESTBODY, strlen(TESTBODY));
 //	resp->setPath("/test.html");
 	resp->setCheckCallback(checktest);
-	acceptHandler.addResponse(ResponseRulePtr(resp));
+	resp->setWaitmsec(10 * 1000);
+	
+	resp->appendRequestHeaderRule("host", "127.*");
+
+	acceptHandler->addResponse(ResponseRulePtr(resp));
 
 	resp = new ResponseRuleGeneral(404);
+	resp->appendRequestHeaderRule("abc", "123");
 	auto checkfnc = [](HttpRequest& req, const uint8_t* unzip_data, size_t unzip_size)
 	{ 
 		LOGOUT("host:%s\n", req.host.c_str());
@@ -388,9 +412,9 @@ int main(void)
 
 
 	resp->setCheckCallback(checkfnc);
-	acceptHandler.addResponse(ResponseRulePtr(resp));
+	acceptHandler->addResponse(ResponseRulePtr(resp));
 
-	acceptHandler.start();
+	acceptHandler->start();
 
 	//int efd = 0;
 	//efd = eventfd(0, 0);
@@ -416,13 +440,41 @@ int main(void)
 	int still_running = 0, i = 0, msgs_left = 0;
 	int http_status_code;
 
-
 	std::thread th(StopServer, (void*)NULL);
-	stopserverlog->wait();
 
-	WAITMS(3 * 1000);
-	stopserverlog->wait();
+	{
 
+		FunctionLogEvalPtr stopserverlog = FunctionLogger::addPattern("StopServer", "complete server");
+
+		FunctionLogEvalCallback chkfunc = [=]() {
+			printf("################logcount:%d\n", stopserverlog->getCount());
+
+			//ResetFunctionLog();
+
+
+
+
+			FunctionLogEvalCallback chkfunc2 = [=]() {
+				printf("logcount222:%d\n", stopserverlog->getCount());
+			};
+
+			stopserverlog->setWaitLogTimeout(1);
+
+			stopserverlog->setCallback(chkfunc2);
+
+			//StopServer(NULL);
+
+
+		};
+
+		stopserverlog->setCallback(chkfunc);
+
+		
+
+		stopserverlog->wait();
+		WAITMS(3 * 1000);
+		stopserverlog->wait();
+	}
 
 	cm = curl_multi_init();
 
@@ -436,6 +488,8 @@ int main(void)
 	//wfd.events = CURL_WAIT_POLLIN;
 	//wfd.fd = efd;
 	//wfd.revents = 0;
+
+	int cnt = 0;
 
 	do {
 		int numfds = 0;
@@ -464,6 +518,13 @@ int main(void)
 		//	break;
 		//}
 		curl_multi_perform(cm, &still_running);
+		cnt++;
+
+		if (cnt >= 1000000)
+		{
+			std::shared_ptr<ServerAcceptHandler>  empty;
+			//acceptHandler = empty;
+		}
 
 	} while (still_running);
 
@@ -570,6 +631,9 @@ int main(void)
 	unsigned int index = 0;
 	ret = initeval->getResult(1, index);
 	LOGOUT_S(stderr, "value:%u ret=%d\n", index, ret);
+
+	ret = initeval->getResultHex(1, index);
+	LOGOUT_S(stderr, "value(hex):%u ret=%d\n", index, ret);
 
 	ResetFunctionLog();
 

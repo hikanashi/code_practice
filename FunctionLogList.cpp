@@ -20,13 +20,22 @@ void FunctionLogList::logout(
 
 	FunctionLog functionlog(function, line, log);
 
-	for (FunctionLogEvalPtr& eval : evals_)
+	std::vector<FunctionLogEvalPtr> proclist;
+
+	{
+		std::lock_guard<std::recursive_mutex> lock(mutex_);
+		proclist = evals_;
+	}
+
+
+	for (FunctionLogEvalPtr& eval : proclist)
 	{
 		if(eval)
 		{
-			if( eval->IsProcess(functionlog) != false )
+			std::vector<std::string> result;
+			if( eval->IsProcess(functionlog, result) != false )
 			{
-				eval->Process(functionlog);
+				eval->Process(functionlog, result);
 			}
 		}
 	}
@@ -36,6 +45,7 @@ void FunctionLogList::logout(
 void FunctionLogList::addFunctionEval(
 		FunctionLogEvalPtr eval)
 {
+	std::lock_guard<std::recursive_mutex> lock(mutex_);
 	evals_.push_back(eval);
 
 }
@@ -43,6 +53,8 @@ void FunctionLogList::addFunctionEval(
 void FunctionLogList::delFunctionEval(
 		FunctionLogEvalPtr eval)
 {
+	std::lock_guard<std::recursive_mutex> lock(mutex_);
+
 	auto itr = evals_.begin();
 	while (itr != evals_.end())
 	{

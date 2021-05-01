@@ -30,6 +30,7 @@ public:
 
 private:
 	std::string function_;
+	std::recursive_mutex	mutex_;
 	std::vector<FunctionLogEvalPtr> evals_;
 };
 

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "FunctionLogger.h"
+#include "loggerwrapper.h"
 
 #define LOGOUT(...)								\
 	do {										\
@@ -13,8 +13,8 @@
 #define FUNC_TO_STR2(x) #x
 #define FUNC_TO_STR(x) FUNC_TO_STR2(x)
 
-#define LOGOUT_APIIN(...)	LOGOUT("[curl_test][API_IN]"  FUNC_TO_STR(__func__)  __VA_ARGS__)
-#define LOGOUT_APIOUT(...)	LOGOUT("[curl_test][API_OUT]"  FUNC_TO_STR(__func__)  __VA_ARGS__)
+#define LOGOUT_APIIN(...)	LOGOUT("[curl_test][API IN]"  __VA_ARGS__)
+#define LOGOUT_APIOUT(...)	LOGOUT("[curl_test][API OUT]" __VA_ARGS__)
 
 
 #ifdef __cplusplus

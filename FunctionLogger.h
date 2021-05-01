@@ -6,24 +6,7 @@
 #include <map>
 #include <mutex>
 #include "FunctionLogList.h"
-
-#define RECORD_FUNCTION(msg, ...) LogoutFunction(__func__, __LINE__, msg, ##__VA_ARGS__)
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-void LogoutFunction(
-		const char* function,
-		uint64_t line,
-		const char* format,
-		...);
-
-void ResetFunctionLog();
-
-#ifdef __cplusplus
-}
-#endif
+#include "FunctionLogEval.h"
 
 class FunctionLogger
 {
@@ -58,6 +41,11 @@ public:
 
 	void reset();
 
+	void setDefaultWaitLogTimeoutCallback(
+		FunctionTimeoutCallback func);
+
+	void setDefaultWaitLogTimeout(
+		int second);
 
 protected:
 	FunctionLogger();
@@ -69,7 +57,11 @@ private:
 
 private:
 	std::map <std::string, FunctionLogListPtr> functions_;
-	std::mutex	mutex_;
+	std::recursive_mutex	functions_mutex_;
+
+	int					    default_waitlog_timeout_sec_;
+	FunctionTimeoutCallback default_waitlog_timeout_callback_;
+	std::recursive_mutex	waitlog_timeout_mutex_;
 
 	static FunctionLogger logger_;
 };
